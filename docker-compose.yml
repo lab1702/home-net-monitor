@@ -1,0 +1,50 @@
+services:
+  # Monitoring service that runs the background checks
+  monitor:
+    build: .
+    container_name: home-net-monitor
+    volumes:
+      - ./data:/data
+    environment:
+      - DATABASE_PATH=/data/network_monitor.db
+    command: python monitoring_service.py
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "health_check.py"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    depends_on:
+      - dashboard
+    networks:
+      - monitoring-network
+
+  # Dashboard service that provides the web interface
+  dashboard:
+    build: .
+    container_name: home-net-dashboard
+    ports:
+      - "8501:8501"
+    volumes:
+      - ./data:/data
+    environment:
+      - DATABASE_PATH=/data/network_monitor.db
+    command: streamlit run dashboard.py --server.port=8501 --server.address=0.0.0.0
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8501/_stcore/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - monitoring-network
+
+networks:
+  monitoring-network:
+    driver: bridge
+
+volumes:
+  data:
+    driver: local
