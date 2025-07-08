@@ -9,6 +9,7 @@ import time
 
 from database import DatabaseManager
 import config
+from config_management import render_config_management
 
 # Configure page
 st.set_page_config(
@@ -29,8 +30,30 @@ db = init_database()
 st.title("📡 Home Network Monitor")
 st.markdown("Monitor your internet connection performance and availability")
 
+# Initialize page state
+if 'page' not in st.session_state:
+    st.session_state.page = "Dashboard"
+
 # Sidebar for controls
 with st.sidebar:
+    st.header("📋 Navigation")
+    
+    # Navigation buttons
+    current_page = st.session_state.page
+    
+    # Dashboard button
+    dashboard_type = "primary" if current_page == "Dashboard" else "secondary"
+    if st.button("📊 Dashboard", use_container_width=True, type=dashboard_type):
+        st.session_state.page = "Dashboard"
+        st.rerun()
+    
+    # Configuration Management button
+    config_type = "primary" if current_page == "Configuration Management" else "secondary"
+    if st.button("⚙️ Configuration Management", use_container_width=True, type=config_type):
+        st.session_state.page = "Configuration Management"
+        st.rerun()
+    
+    st.markdown("---")
     st.header("⚙️ Settings")
     
     # Time range selector
@@ -57,6 +80,11 @@ with st.sidebar:
     # Manual refresh button
     if st.button("🔄 Refresh Now"):
         st.rerun()
+
+# Render appropriate page
+if st.session_state.page == "Configuration Management":
+    render_config_management()
+    st.stop()  # Stop rendering the rest of the dashboard
 
 # Auto-refresh functionality will be handled at the end
 

@@ -15,11 +15,15 @@ A simple yet powerful network monitoring tool that tracks your internet connecti
 ## Sites Monitored
 
 By default, the following sites are monitored:
-- Google (8.8.8.8)
-- GitHub
-- Cloudflare (1.1.1.1)
-- Amazon
-- Microsoft
+- Google (8.8.8.8) - Full monitoring (HTTP + Ping)
+- GitHub - Full monitoring (HTTP + Ping)
+- Cloudflare (1.1.1.1) - Full monitoring (HTTP + Ping)
+- Amazon - Full monitoring (HTTP + Ping)
+- Microsoft - HTTP only (ping blocked)
+- Netflix - HTTP only (ping blocked)
+- Google DNS Secondary (8.8.4.4) - Ping only
+
+**Note:** Sites are now managed through the database via the Configuration Management interface in the dashboard.
 
 ## Quick Start
 
@@ -74,12 +78,23 @@ streamlit run dashboard.py
 - Ping latency trends
 - Packet loss visualization
 
+### Configuration Management
+- Add, edit, and delete monitoring sites
+- Enable/disable individual sites
+- Configure HTTP and/or ping testing per site
+- Real-time validation of configurations
+- User-friendly interface for managing monitoring targets
+
 ### Settings
 - Auto-refresh toggle (30-second intervals)
 - Manual refresh button
 - Time range selector
 
 ## Configuration
+
+**Database-Driven Configuration**: Sites are managed through the database using the Configuration Management interface. This facilitates real-time configuration without restarting the service.
+
+**Default Sites**: The system initializes with default configurations from `config.py`, but these can be modified through the web interface.
 
 For detailed configuration options including monitoring types (HTTP-only, ping-only, full monitoring) and site examples, see [SITE_CONFIGURATION.md](SITE_CONFIGURATION.md).
 
@@ -89,23 +104,36 @@ For dashboard usage and symbols, see [DASHBOARD_GUIDE.md](DASHBOARD_GUIDE.md).
 
 ## Architecture
 
-- **Backend**: Python with DuckDB database
-- **Frontend**: Streamlit web application
-- **Monitoring**: Separate service that runs ping and HTTP checks
-- **Data**: Stored in a lightweight DuckDB database file
+- **Backend**: Python with DuckDB database and robust error handling
+- **Frontend**: Streamlit web application with real-time configuration management
+- **Monitoring**: Separate service that runs ping and HTTP checks with comprehensive logging
+- **Data**: Stored in a lightweight DuckDB database file with proper connection management
+- **Validation**: Centralized input validation for security and data integrity
+- **Logging**: Structured logging with configurable levels and formats
+
+## Architecture Diagram
+
+To better understand the architecture, refer to this simplified diagram: (ASCII art or reference to an external diagram file)
+
+[Architecture Diagram]
 
 ## File Structure
 
 ```
 home-net-monitor/
 ├── config.py              # Configuration settings
-├── database.py             # Database operations
+├── database.py             # Database operations with context manager
 ├── monitor.py              # Network monitoring logic
 ├── monitoring_service.py   # Background monitoring service
 ├── dashboard.py            # Streamlit dashboard
+├── config_management.py    # Configuration management UI
+├── validators.py           # Centralized input validation utilities
+├── logging_config.py       # Centralized logging configuration
+├── tests.py               # Unit tests
 ├── requirements.txt        # Python dependencies
 ├── Dockerfile             # Docker container definition
 ├── docker-compose.yml     # Multi-container setup
+├── CHANGELOG.md           # Change log
 └── README.md              # This file
 ```
 
@@ -158,6 +186,24 @@ The application stores data in a DuckDB database with the following schema:
   - Timestamps and success flags
 
 Data is automatically cleaned up after 30 days to prevent unlimited growth.
+
+## Environment Variables
+
+Here are some important environment variables that can be configured:
+- `DATABASE_PATH`: Path to the DuckDB database file (default: `network_monitor.db`)
+- `CHECK_INTERVAL_SECONDS`: Interval for running monitoring checks (default: `60` seconds)
+
+## Security Considerations
+
+- **Input Validation**: All user inputs are validated through centralized validation functions
+- **SQL Injection Protection**: Database queries use proper parameterization and input validation
+- **Connection Management**: Database connections are managed through context managers for safety
+- **Logging Security**: Sensitive information is not logged in plain text
+- **Dependency Updates**: Regularly review and update dependency versions for security patches
+
+## Change Log
+
+All changes, including features, bug fixes, and enhancements, should be documented here for better version control.
 
 ## Troubleshooting
 

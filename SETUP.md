@@ -4,7 +4,7 @@ This guide will help you set up the Python environment for the Home Network Moni
 
 ## Prerequisites
 
-- Python 3.13 or higher (recommended)
+- Python 3.13+ (recommended)
 - `pip` package manager
 - Virtual environment support (`venv`)
 
@@ -111,6 +111,7 @@ After completing the setup:
 2. Start the monitoring service: `python monitoring_service.py &`
 3. Run the dashboard with `streamlit run dashboard.py`
 4. Open your browser to http://localhost:8501
+5. Use the **Configuration Management** interface to manage monitoring targets
 
 ## Support
 

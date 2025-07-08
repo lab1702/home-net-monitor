@@ -6,12 +6,12 @@ import requests
 import re
 import logging
 from datetime import datetime
-from typing import Dict, Optional, Tuple
+from typing import Dict, Optional, Tuple, List
 import config
 
 # Configure logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+from logging_config import get_logger
+logger = get_logger('monitor')
 
 
 class NetworkMonitor:
@@ -59,7 +59,7 @@ class NetworkMonitor:
                 'packet_loss_percent': 100.0
             }
         except Exception as e:
-            logger.error(f"Ping error for {host}: {e}")
+            logger.error(f"Ping error for {host}: {e}", exc_info=True)
             return {
                 'success': False,
                 'avg_ms': None,
@@ -102,7 +102,7 @@ class NetworkMonitor:
             }
         
         except Exception as e:
-            logger.error(f"Error parsing ping output: {e}")
+            logger.error(f"Error parsing ping output: {e}", exc_info=True)
             return {
                 'success': False,
                 'avg_ms': None,
@@ -145,7 +145,7 @@ class NetworkMonitor:
                 'response_time_ms': None
             }
         except Exception as e:
-            logger.error(f"HTTP error for {url}: {e}")
+            logger.error(f"HTTP error for {url}: {e}", exc_info=True)
             return {
                 'success': False,
                 'status_code': None,
@@ -156,9 +156,11 @@ class NetworkMonitor:
         """Monitor a single site with optional HTTP and ping checks."""
         timestamp = datetime.now()
         
-        # Perform HTTP check only if URL is specified
+        # Perform HTTP check only if URL is specified and HTTP is enabled
         url = site_config.get('url')
-        if url and url.strip():  # Skip if None, False, or empty string
+        enable_http = site_config.get('enable_http', True)
+        
+        if url and url.strip() and enable_http:
             http_result = self.check_http(url)
             http_enabled = True
         else:
@@ -170,9 +172,11 @@ class NetworkMonitor:
             }
             http_enabled = False
         
-        # Perform ping check only if ping_host is specified
+        # Perform ping check only if ping_host is specified and ping is enabled
         ping_host = site_config.get('ping_host')
-        if ping_host and ping_host.strip():  # Skip if None, False, or empty string
+        enable_ping = site_config.get('enable_ping', True)
+        
+        if ping_host and ping_host.strip() and enable_ping:
             ping_result = self.ping_host(ping_host)
             ping_enabled = True
         else:
@@ -248,21 +252,25 @@ class NetworkMonitor:
         
         return result
     
-    def monitor_all_sites(self) -> list:
+    def monitor_all_sites(self, site_configs: List[Dict] = None) -> list:
         """Monitor all configured sites."""
         results = []
         
-        for site_config in config.MONITOR_SITES:
+        # Use provided configurations or fall back to static config
+        if site_configs is None:
+            site_configs = config.MONITOR_SITES
+        
+        for site_config in site_configs:
             try:
                 result = self.monitor_site(site_config)
                 results.append(result)
             except Exception as e:
-                logger.error(f"Error monitoring {site_config['name']}: {e}")
+                logger.error(f"Error monitoring {site_config['name']}: {e}", exc_info=True)
                 # Create a failed result
                 failed_result = {
                     'timestamp': datetime.now(),
                     'site_name': site_config['name'],
-                    'site_url': site_config['url'],
+                    'site_url': site_config.get('url'),
                     'ping_host': site_config.get('ping_host'),
                     'http_status_code': None,
                     'http_response_time_ms': None,

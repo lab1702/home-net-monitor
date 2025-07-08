@@ -2,7 +2,6 @@
 
 import time
 import schedule
-import logging
 from datetime import datetime
 from threading import Thread
 import signal
@@ -11,13 +10,10 @@ import sys
 from monitor import NetworkMonitor
 from database import DatabaseManager
 import config
+from logging_config import get_logger
 
 # Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
-logger = logging.getLogger(__name__)
+logger = get_logger('monitoring_service')
 
 
 class MonitoringService:
@@ -27,6 +23,7 @@ class MonitoringService:
         self.monitor = NetworkMonitor()
         self.db = DatabaseManager()
         self.running = True
+        self.site_configs = []
         self.setup_signal_handlers()
     
     def setup_signal_handlers(self):
@@ -42,8 +39,11 @@ class MonitoringService:
     def run_monitoring_cycle(self):
         """Run a single monitoring cycle for all sites."""
         try:
+            logger.info("Loading configurations...")
+            self.site_configs = self.db.get_enabled_configurations()
+            
             logger.info("Starting monitoring cycle...")
-            results = self.monitor.monitor_all_sites()
+            results = self.monitor.monitor_all_sites(self.site_configs)
             
             # Store results in database
             for result in results:
@@ -52,7 +52,7 @@ class MonitoringService:
             logger.info(f"Completed monitoring cycle, stored {len(results)} results")
             
         except Exception as e:
-            logger.error(f"Error in monitoring cycle: {e}")
+            logger.error(f"Error in monitoring cycle: {e}", exc_info=True)
     
     def cleanup_old_data(self):
         """Clean up old data from the database."""
@@ -61,12 +61,15 @@ class MonitoringService:
             self.db.cleanup_old_data(days_to_keep=30)
             logger.info("Data cleanup completed")
         except Exception as e:
-            logger.error(f"Error during data cleanup: {e}")
+            logger.error(f"Error during data cleanup: {e}", exc_info=True)
     
     def start(self):
         """Start the monitoring service."""
         logger.info("Starting network monitoring service...")
-        logger.info(f"Monitoring {len(config.MONITOR_SITES)} sites every {config.CHECK_INTERVAL_SECONDS} seconds")
+        
+        # Load initial configurations to report count
+        self.site_configs = self.db.get_enabled_configurations()
+        logger.info(f"Monitoring {len(self.site_configs)} sites every {config.CHECK_INTERVAL_SECONDS} seconds")
         
         # Schedule monitoring checks
         schedule.every(config.CHECK_INTERVAL_SECONDS).seconds.do(self.run_monitoring_cycle)
@@ -86,7 +89,7 @@ class MonitoringService:
                 logger.info("Received keyboard interrupt, shutting down...")
                 break
             except Exception as e:
-                logger.error(f"Unexpected error in main loop: {e}")
+                logger.error(f"Unexpected error in main loop: {e}", exc_info=True)
                 time.sleep(5)  # Wait before retrying
         
         logger.info("Monitoring service stopped")

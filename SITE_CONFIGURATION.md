@@ -10,7 +10,7 @@ The network monitor supports three types of monitoring configurations:
 
 ## How to Configure Sites to Monitor
 
-Sites are configured in the `config.py` file in the `MONITOR_SITES` list.
+Sites are now configured through the **Configuration Management** interface in the dashboard, providing real-time configuration changes without service restarts. The default sites are initially loaded from `config.py`.
 
 ### Basic Configuration
 
@@ -322,6 +322,12 @@ The system currently monitors these sites:
 
 ## After Making Changes
 
+**Using Configuration Management Interface (Recommended):**
+1. **Navigate** to the Configuration Management page in the dashboard
+2. **Add/Edit/Delete** sites using the web interface
+3. **Changes** take effect immediately without service restart
+
+**Using config.py (Legacy Method):**
 1. **Edit** `config.py` and modify the `MONITOR_SITES` list
 2. **Rebuild** containers: `docker compose build`
 3. **Restart** services: `docker compose up -d`
@@ -334,4 +340,4 @@ The system currently monitors these sites:
 - **Local sites fail**: Verify IP addresses and network connectivity
 - **Changes not applied**: Make sure to rebuild Docker containers
 
-For more details, see the main README.md file.
+For more details, see the main [README.md](README.md) file.
