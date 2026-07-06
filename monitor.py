@@ -14,6 +14,12 @@ from logging_config import get_logger
 logger = get_logger('monitor')
 
 
+def _failed_ping() -> Dict:
+    """A ping result representing total failure (100% loss, no timings)."""
+    return {'success': False, 'avg_ms': None, 'min_ms': None,
+            'max_ms': None, 'packet_loss_percent': 100.0}
+
+
 class NetworkMonitor:
     """Performs network monitoring checks."""
     
@@ -41,32 +47,14 @@ class NetworkMonitor:
                 return self._parse_ping_output(result.stdout)
             else:
                 logger.warning(f"Ping failed for {host}: {result.stderr}")
-                return {
-                    'success': False,
-                    'avg_ms': None,
-                    'min_ms': None,
-                    'max_ms': None,
-                    'packet_loss_percent': 100.0
-                }
-        
+                return _failed_ping()
+
         except subprocess.TimeoutExpired:
             logger.error(f"Ping timeout for {host}")
-            return {
-                'success': False,
-                'avg_ms': None,
-                'min_ms': None,
-                'max_ms': None,
-                'packet_loss_percent': 100.0
-            }
+            return _failed_ping()
         except Exception as e:
             logger.error(f"Ping error for {host}: {e}", exc_info=True)
-            return {
-                'success': False,
-                'avg_ms': None,
-                'min_ms': None,
-                'max_ms': None,
-                'packet_loss_percent': 100.0
-            }
+            return _failed_ping()
     
     def _parse_ping_output(self, output: str) -> Dict:
         """Parse ping command output to extract statistics."""
@@ -103,13 +91,7 @@ class NetworkMonitor:
         
         except Exception as e:
             logger.error(f"Error parsing ping output: {e}", exc_info=True)
-            return {
-                'success': False,
-                'avg_ms': None,
-                'min_ms': None,
-                'max_ms': None,
-                'packet_loss_percent': 100.0
-            }
+            return _failed_ping()
     
     def check_http(self, url: str) -> Dict:
         """Check HTTP response for a URL."""

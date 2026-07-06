@@ -31,15 +31,7 @@ pip install -r requirements.txt
 ### 4. Verify Installation
 
 ```bash
-python test_setup.py
-```
-
-## Quick Setup
-
-For convenience, you can use the provided activation script:
-
-```bash
-./activate_env.sh
+python tests.py
 ```
 
 ## Installed Packages
@@ -51,8 +43,6 @@ The following Python packages are installed (always fetches latest versions):
 - **Requests** - HTTP library
 - **Pandas** - Data manipulation and analysis
 - **Plotly** - Interactive plotting library
-- **Python-dotenv** - Environment variable loading
-- **Schedule** - Job scheduling library
 
 ### Why Latest Versions?
 

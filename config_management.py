@@ -96,16 +96,6 @@ def render_config_management():
                         enable_http = st.checkbox("Enable HTTP Test", value=config_row['enable_http'])
                         enable_ping = st.checkbox("Enable Ping Test", value=config_row['enable_ping'])
                     
-                    # Validation message
-                    if not enable_http and not enable_ping:
-                        st.error("At least one test type (HTTP or Ping) must be enabled.")
-                    
-                    if not url.strip() and enable_http:
-                        st.error("URL is required when HTTP test is enabled.")
-                    
-                    if not ping_host.strip() and enable_ping:
-                        st.error("Ping Host is required when Ping test is enabled.")
-                    
                     col1, col2 = st.columns(2)
                     with col1:
                         update_button = st.form_submit_button("Update Configuration", type="primary")
@@ -156,16 +146,6 @@ def render_config_management():
                 enabled = st.checkbox("Site Enabled", value=True)
                 enable_http = st.checkbox("Enable HTTP Test", value=True)
                 enable_ping = st.checkbox("Enable Ping Test", value=True)
-            
-            # Validation messages
-            if not enable_http and not enable_ping:
-                st.error("At least one test type (HTTP or Ping) must be enabled.")
-            
-            if not url.strip() and enable_http:
-                st.error("URL is required when HTTP test is enabled.")
-            
-            if not ping_host.strip() and enable_ping:
-                st.error("Ping Host is required when Ping test is enabled.")
             
             submit_button = st.form_submit_button("Add Configuration", type="primary")
             

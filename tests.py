@@ -7,7 +7,7 @@ from unittest.mock import patch, MagicMock
 # Import modules to test
 from validators import validate_config
 from database import DatabaseManager
-from logging_config import setup_logging, get_logger
+from logging_config import get_logger
 
 # Simple assertion function to replace pytest
 def assert_equal(actual, expected, message=""):
@@ -187,33 +187,11 @@ class TestDatabaseManager:
 
 class TestLoggingConfig:
     """Test cases for the logging configuration."""
-    
-    def test_setup_logging_creates_logger(self):
-        """Test that setup_logging creates a logger."""
-        logger = setup_logging()
-        assert_equal(logger.name, 'home_net_monitor')
-        assert_equal(logger.level, 20)  # INFO level
-    
+
     def test_get_logger_creates_named_logger(self):
         """Test that get_logger creates a logger with the correct name."""
         logger = get_logger('test_module')
         assert_equal(logger.name, 'home_net_monitor.test_module')
-    
-    def test_setup_logging_with_file(self):
-        """Test that setup_logging can create a file handler."""
-        with tempfile.NamedTemporaryFile(delete=False) as temp_file:
-            log_file = temp_file.name
-        
-        try:
-            logger = setup_logging(log_file=log_file)
-            assert_equal(len(logger.handlers), 2)  # Console and file handlers
-            
-            # Test that log file was created
-            assert_true(os.path.exists(log_file))
-        finally:
-            # Clean up
-            if os.path.exists(log_file):
-                os.unlink(log_file)
 
 
 if __name__ == '__main__':

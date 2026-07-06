@@ -1,9 +1,7 @@
 """Background monitoring service that runs continuously."""
 
 import time
-import schedule
 from datetime import datetime
-from threading import Thread
 import signal
 import sys
 
@@ -70,20 +68,23 @@ class MonitoringService:
         # Load initial configurations to report count
         self.site_configs = self.db.get_enabled_configurations()
         logger.info(f"Monitoring {len(self.site_configs)} sites every {config.CHECK_INTERVAL_SECONDS} seconds")
-        
-        # Schedule monitoring checks
-        schedule.every(config.CHECK_INTERVAL_SECONDS).seconds.do(self.run_monitoring_cycle)
-        
-        # Schedule daily cleanup
-        schedule.every().day.at("02:00").do(self.cleanup_old_data)
-        
-        # Run initial monitoring cycle
-        self.run_monitoring_cycle()
-        
-        # Main monitoring loop
+
+        # ponytail: plain interval loop instead of the `schedule` dep. Cleanup
+        # fires the first time we see hour>=2 on a new day (at startup if already
+        # past 2am), which is close enough to a nightly job for a home monitor.
+        last_check = 0.0
+        last_cleanup_date = None
         while self.running:
             try:
-                schedule.run_pending()
+                if time.monotonic() - last_check >= config.CHECK_INTERVAL_SECONDS:
+                    last_check = time.monotonic()
+                    self.run_monitoring_cycle()
+
+                today = datetime.now().date()
+                if datetime.now().hour >= 2 and last_cleanup_date != today:
+                    last_cleanup_date = today
+                    self.cleanup_old_data()
+
                 time.sleep(1)
             except KeyboardInterrupt:
                 logger.info("Received keyboard interrupt, shutting down...")
