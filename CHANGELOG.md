@@ -19,6 +19,7 @@ All notable changes to the Home Network Monitor project will be documented in th
 - **DuckDB Compatibility**: Fixed SQL syntax issues specific to DuckDB interval queries
 
 ### Changed
+- **Amazon Default Ping Target**: Changed Amazon's default ping host from `amazon.com` to `www.amazon.com`
 - **Navigation UI**: Moved navigation buttons to the sidebar for better organization
 - **Configuration Storage**: Migrated from static config.py to database-driven configuration
 - **Monitoring Service**: Updated to load configurations from database in real-time
