@@ -124,22 +124,8 @@ class NetworkMonitor:
                 'response_time_ms': response_time_ms
             }
         
-        except requests.exceptions.Timeout:
-            logger.warning(f"HTTP timeout for {url}")
-            return {
-                'success': False,
-                'status_code': None,
-                'response_time_ms': None
-            }
-        except requests.exceptions.ConnectionError:
-            logger.warning(f"HTTP connection error for {url}")
-            return {
-                'success': False,
-                'status_code': None,
-                'response_time_ms': None
-            }
-        except Exception as e:
-            logger.error(f"HTTP error for {url}: {e}", exc_info=True)
+        except requests.exceptions.RequestException as e:
+            logger.warning(f"HTTP error for {url}: {e}")
             return {
                 'success': False,
                 'status_code': None,

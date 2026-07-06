@@ -15,16 +15,9 @@ def main():
             print("Database file does not exist")
             sys.exit(1)
         
-        # Check if database is accessible and has recent data
+        # Check if database is accessible and has recent data. A missing table
+        # raises here and is caught below, so no separate existence check.
         with duckdb.connect(db_path) as conn:
-            # Check if table exists
-            tables = conn.execute("SHOW TABLES").fetchall()
-            table_names = [table[0] for table in tables]
-            
-            if 'monitoring_results' not in table_names:
-                print("Monitoring results table does not exist")
-                sys.exit(1)
-            
             # Check for recent data (within last 5 minutes)
             five_minutes_ago = datetime.now() - timedelta(minutes=5)
             result = conn.execute("""

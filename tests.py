@@ -8,15 +8,8 @@ from unittest.mock import patch, MagicMock
 from validators import validate_config
 from database import DatabaseManager
 
-# Simple assertion function to replace pytest
-def assert_equal(actual, expected, message=""):
-    if actual != expected:
-        raise AssertionError(f"Expected {expected}, got {actual}. {message}")
-
-def assert_true(condition, message=""):
-    if not condition:
-        raise AssertionError(f"Expected True, got False. {message}")
-
+# Zero-dep assertions: bare `assert` covers equality; only "did it raise?"
+# needs a helper.
 def assert_raises(exception_type, func, *args, **kwargs):
     try:
         func(*args, **kwargs)
@@ -149,8 +142,8 @@ class TestDatabaseManager:
         
         # Verify configuration was inserted
         configs = self.db.get_all_configurations()
-        assert_equal(len(configs), 1)
-        assert_equal(configs.iloc[0]['name'], 'Test Site')
+        assert len(configs) == 1
+        assert configs.iloc[0]['name'] == 'Test Site'
     
     def test_insert_invalid_configuration(self):
         """Test inserting an invalid configuration raises an error."""
@@ -183,8 +176,8 @@ class TestDatabaseManager:
         self.db.insert_configuration(config2)
         
         enabled_configs = self.db.get_enabled_configurations()
-        assert_equal(len(enabled_configs), 1)
-        assert_equal(enabled_configs[0]['name'], 'Enabled Site')
+        assert len(enabled_configs) == 1
+        assert enabled_configs[0]['name'] == 'Enabled Site'
 
 
 if __name__ == '__main__':

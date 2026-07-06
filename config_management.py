@@ -167,39 +167,5 @@ def render_config_management():
                 except Exception as e:
                     st.error(f"Error adding configuration: {e}")
     
-    # Configuration guidelines
     st.markdown("---")
-    st.subheader("📖 Configuration Guidelines")
-    
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        st.markdown("""
-        **HTTP Monitoring:**
-        - Use for websites and web services
-        - Checks HTTP response codes and response times
-        - Use HTTPS URLs when available
-        - Example: `https://www.google.com`
-        """)
-    
-    with col2:
-        st.markdown("""
-        **Ping Monitoring:**
-        - Use for network connectivity checks
-        - Works with hostnames or IP addresses
-        - Good for DNS servers, routers, etc.
-        - Example: `8.8.8.8` or `google.com`
-        """)
-    
-    st.markdown("""
-    **Common Configurations:**
-    - **Full Monitoring**: Enable both HTTP and Ping for comprehensive monitoring
-    - **HTTP Only**: For sites that block ping (many CDNs and cloud services)
-    - **Ping Only**: For infrastructure devices without web interfaces
-    
-    **Requirements:**
-    - Site name is always required
-    - At least one test type must be enabled
-    - URL is required if HTTP test is enabled
-    - Ping host is required if Ping test is enabled
-    """)
+    st.caption("See SITE_CONFIGURATION.md for HTTP vs. ping guidance and examples.")

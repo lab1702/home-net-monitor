@@ -243,15 +243,6 @@ class DatabaseManager:
             """
             return conn.execute(query).df()
     
-    def get_historical_data(self, site_name: str, hours: int = 24) -> pd.DataFrame:
-        """Get historical data for a specific site."""
-        with duckdb.connect(self.db_path) as conn:
-            return conn.execute("""
-                SELECT * FROM monitoring_results
-                WHERE site_name = ? AND timestamp > now() - to_hours(?::BIGINT)
-                ORDER BY timestamp ASC
-            """, (site_name, hours)).df()
-    
     def cleanup_old_data(self, days_to_keep: int = 30):
         """Remove data older than specified days."""
         with duckdb.connect(self.db_path) as conn:
