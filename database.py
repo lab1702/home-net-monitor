@@ -4,7 +4,6 @@ import duckdb
 import pandas as pd
 from datetime import datetime
 from typing import List, Dict, Optional
-from contextlib import contextmanager
 import config
 from validators import validate_config
 from logging_config import get_logger
@@ -18,21 +17,10 @@ class DatabaseManager:
     def __init__(self, db_path: str = config.DATABASE_PATH):
         self.db_path = db_path
         self.init_database()
-    
-    @contextmanager
-    def get_connection(self):
-        """Context manager for database connections."""
-        conn = None
-        try:
-            conn = duckdb.connect(self.db_path)
-            yield conn
-        finally:
-            if conn:
-                conn.close()
-    
+
     def init_database(self):
         """Initialize the database with required tables."""
-        with self.get_connection() as conn:
+        with duckdb.connect(self.db_path) as conn:
             # Create sequence for auto-incrementing IDs
             conn.execute("""
                 CREATE SEQUENCE IF NOT EXISTS monitoring_results_id_seq
@@ -103,7 +91,7 @@ class DatabaseManager:
             enable_http = config.get('enable_http', True)
             enable_ping = config.get('enable_ping', True)
             
-            with self.get_connection() as conn:
+            with duckdb.connect(self.db_path) as conn:
                 conn.execute("""
                     INSERT INTO monitoring_config (
                         name, url, ping_host, enabled, enable_http, enable_ping
@@ -125,7 +113,7 @@ class DatabaseManager:
 
     def update_configuration(self, config_id: int, config: Dict):
         """Update an existing monitoring configuration."""
-        with self.get_connection() as conn:
+        with duckdb.connect(self.db_path) as conn:
             conn.execute("""
                 UPDATE monitoring_config SET
                 name = ?, url = ?, ping_host = ?, enabled = ?,
@@ -143,7 +131,7 @@ class DatabaseManager:
 
     def delete_configuration(self, config_id: int):
         """Delete a monitoring configuration from the database."""
-        with self.get_connection() as conn:
+        with duckdb.connect(self.db_path) as conn:
             conn.execute("""
                 DELETE FROM monitoring_config WHERE id = ?
             """, (config_id,))
@@ -155,7 +143,7 @@ class DatabaseManager:
 
     def get_enabled_configurations(self) -> List[Dict]:
         """Retrieve only enabled monitoring configurations for the monitoring service."""
-        with self.get_connection() as conn:
+        with duckdb.connect(self.db_path) as conn:
             results = conn.execute("""
                 SELECT * FROM monitoring_config 
                 WHERE enabled = true 
@@ -179,7 +167,7 @@ class DatabaseManager:
 
     def initialize_default_configurations(self):
         """Initialize default monitoring configurations if none exist."""
-        with self.get_connection() as conn:
+        with duckdb.connect(self.db_path) as conn:
             count = conn.execute("SELECT COUNT(*) FROM monitoring_config").fetchone()[0]
             
             if count == 0:
@@ -204,7 +192,7 @@ class DatabaseManager:
 
     def insert_monitoring_result(self, result: Dict):
         """Insert a monitoring result into the database."""
-        with self.get_connection() as conn:
+        with duckdb.connect(self.db_path) as conn:
             conn.execute("""
                 INSERT INTO monitoring_results (
                     timestamp, site_name, site_url, ping_host,
@@ -230,7 +218,7 @@ class DatabaseManager:
     
     def get_recent_results(self, hours: int = 24) -> pd.DataFrame:
         """Get monitoring results from the last N hours."""
-        with self.get_connection() as conn:
+        with duckdb.connect(self.db_path) as conn:
             return conn.execute("""
                 SELECT * FROM monitoring_results
                 WHERE timestamp > now() - to_hours(?::BIGINT)
@@ -239,7 +227,7 @@ class DatabaseManager:
     
     def get_site_summary(self, hours: int = 24) -> pd.DataFrame:
         """Get summary statistics for each site."""
-        with self.get_connection() as conn:
+        with duckdb.connect(self.db_path) as conn:
             return conn.execute("""
                 SELECT
                     site_name,
@@ -257,7 +245,7 @@ class DatabaseManager:
     
     def get_current_status(self) -> pd.DataFrame:
         """Get the most recent status for each site."""
-        with self.get_connection() as conn:
+        with duckdb.connect(self.db_path) as conn:
             query = """
                 WITH ranked_results AS (
                     SELECT *,
@@ -270,7 +258,7 @@ class DatabaseManager:
     
     def get_historical_data(self, site_name: str, hours: int = 24) -> pd.DataFrame:
         """Get historical data for a specific site."""
-        with self.get_connection() as conn:
+        with duckdb.connect(self.db_path) as conn:
             return conn.execute("""
                 SELECT * FROM monitoring_results
                 WHERE site_name = ? AND timestamp > now() - to_hours(?::BIGINT)
@@ -279,7 +267,7 @@ class DatabaseManager:
     
     def cleanup_old_data(self, days_to_keep: int = 30):
         """Remove data older than specified days."""
-        with self.get_connection() as conn:
+        with duckdb.connect(self.db_path) as conn:
             conn.execute("""
                 DELETE FROM monitoring_results
                 WHERE timestamp < now() - to_days(?::BIGINT)

@@ -63,21 +63,15 @@ class NetworkMonitor:
             packet_loss_match = re.search(r'(\d+)% packet loss', output)
             packet_loss = float(packet_loss_match.group(1)) if packet_loss_match else 0.0
             
-            # Look for timing statistics (min/avg/max)
-            timing_match = re.search(r'min/avg/max/stddev = ([\d.]+)/([\d.]+)/([\d.]+)/([\d.]+) ms', output)
+            # Look for timing statistics: "min/avg/max[/stddev] = 1/2/3[/4] ms".
+            # One regex covers both the Linux (rtt) and macOS/BSD (round-trip) headers.
+            timing_match = re.search(r'= ([\d.]+)/([\d.]+)/([\d.]+)/', output)
             if timing_match:
                 min_ms = float(timing_match.group(1))
                 avg_ms = float(timing_match.group(2))
                 max_ms = float(timing_match.group(3))
             else:
-                # Try alternative format
-                timing_match = re.search(r'= ([\d.]+)/([\d.]+)/([\d.]+)/([\d.]+) ms', output)
-                if timing_match:
-                    min_ms = float(timing_match.group(1))
-                    avg_ms = float(timing_match.group(2))
-                    max_ms = float(timing_match.group(3))
-                else:
-                    min_ms = avg_ms = max_ms = None
+                min_ms = avg_ms = max_ms = None
             
             success = packet_loss < 100.0
             
@@ -236,14 +230,10 @@ class NetworkMonitor:
         
         return result
     
-    def monitor_all_sites(self, site_configs: List[Dict] = None) -> list:
+    def monitor_all_sites(self, site_configs: List[Dict]) -> list:
         """Monitor all configured sites."""
         results = []
-        
-        # Use provided configurations or fall back to static config
-        if site_configs is None:
-            site_configs = config.MONITOR_SITES
-        
+
         for site_config in site_configs:
             try:
                 result = self.monitor_site(site_config)

@@ -57,26 +57,6 @@ MONITOR_SITES = [
         "ping_host": "8.8.4.4"  # Ping-only: DNS server has no web interface
         # No 'url' field - only ping monitoring
     }
-    # To add more sites, uncomment and modify the examples below:
-    # {
-    #     "name": "Local Router",
-    #     "url": "http://192.168.1.1",  # Adjust to your router's IP
-    #     "ping_host": "192.168.1.1"
-    # },
-    # {
-    #     "name": "OpenDNS",
-    #     "url": "https://www.opendns.com",
-    #     "ping_host": "208.67.222.222"  # OpenDNS server
-    # },
-    # {
-    #     "name": "Your Website",
-    #     "url": "https://yoursite.com",
-    #     "ping_host": "yoursite.com"
-    # },
-    # {
-    #     "name": "Mail Server",
-    #     "ping_host": "mail.example.com"  # Ping-only: no web interface
-    # }
 ]
 
 # Monitoring configuration

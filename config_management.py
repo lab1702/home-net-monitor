@@ -14,18 +14,20 @@ def render_config_management():
     
     # Initialize database
     db = DatabaseManager()
-    
+
+    # Load configurations once for this render
+    config_df = db.get_all_configurations()
+
     # Add information to sidebar
     with st.sidebar:
         st.markdown("---")
         st.markdown("**Configuration Status:**")
-        
+
         # Get configuration summary
         enabled_configs = db.get_enabled_configurations()
-        all_configs = db.get_all_configurations()
-        
-        if not all_configs.empty:
-            total_sites = len(all_configs)
+
+        if not config_df.empty:
+            total_sites = len(config_df)
             enabled_sites = len(enabled_configs)
             disabled_sites = total_sites - enabled_sites
             
@@ -42,10 +44,7 @@ def render_config_management():
         if st.button("📊 View Dashboard", use_container_width=True):
             st.session_state.page = "Dashboard"
             st.rerun()
-    
-    # Get all configurations
-    config_df = db.get_all_configurations()
-    
+
     # Create tabs for different operations
     tab1, tab2 = st.tabs(["📋 View/Edit Configurations", "➕ Add New Configuration"])
     
