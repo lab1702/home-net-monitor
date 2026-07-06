@@ -230,27 +230,18 @@ class DatabaseManager:
     
     def get_recent_results(self, hours: int = 24) -> pd.DataFrame:
         """Get monitoring results from the last N hours."""
-        # Validate input to prevent SQL injection
-        if not isinstance(hours, int) or hours < 0 or hours > 8760:  # Max 1 year
-            raise ValueError("Hours must be a positive integer less than 8760")
-        
         with self.get_connection() as conn:
-            query = """
-                SELECT * FROM monitoring_results 
-                WHERE timestamp > NOW() - INTERVAL '{} hours'
+            return conn.execute("""
+                SELECT * FROM monitoring_results
+                WHERE timestamp > now() - to_hours(?::BIGINT)
                 ORDER BY timestamp DESC
-            """.format(hours)
-            return conn.execute(query).df()
+            """, (hours,)).df()
     
     def get_site_summary(self, hours: int = 24) -> pd.DataFrame:
         """Get summary statistics for each site."""
-        # Validate input to prevent SQL injection
-        if not isinstance(hours, int) or hours < 0 or hours > 8760:  # Max 1 year
-            raise ValueError("Hours must be a positive integer less than 8760")
-        
         with self.get_connection() as conn:
-            query = """
-                SELECT 
+            return conn.execute("""
+                SELECT
                     site_name,
                     COUNT(*) as total_checks,
                     SUM(CASE WHEN overall_success THEN 1 ELSE 0 END) as successful_checks,
@@ -258,12 +249,11 @@ class DatabaseManager:
                     AVG(http_response_time_ms) as avg_http_response_time,
                     AVG(ping_avg_ms) as avg_ping_time,
                     AVG(ping_packet_loss_percent) as avg_packet_loss
-                FROM monitoring_results 
-                WHERE timestamp > NOW() - INTERVAL '{} hours'
+                FROM monitoring_results
+                WHERE timestamp > now() - to_hours(?::BIGINT)
                 GROUP BY site_name
                 ORDER BY uptime_percent DESC
-            """.format(hours)
-            return conn.execute(query).df()
+            """, (hours,)).df()
     
     def get_current_status(self) -> pd.DataFrame:
         """Get the most recent status for each site."""
@@ -280,26 +270,17 @@ class DatabaseManager:
     
     def get_historical_data(self, site_name: str, hours: int = 24) -> pd.DataFrame:
         """Get historical data for a specific site."""
-        # Validate input to prevent SQL injection
-        if not isinstance(hours, int) or hours < 0 or hours > 8760:  # Max 1 year
-            raise ValueError("Hours must be a positive integer less than 8760")
-        
         with self.get_connection() as conn:
-            query = """
-                SELECT * FROM monitoring_results 
-                WHERE site_name = ? AND timestamp > NOW() - INTERVAL '{} hours'
+            return conn.execute("""
+                SELECT * FROM monitoring_results
+                WHERE site_name = ? AND timestamp > now() - to_hours(?::BIGINT)
                 ORDER BY timestamp ASC
-            """.format(hours)
-            return conn.execute(query, (site_name,)).df()
+            """, (site_name, hours)).df()
     
     def cleanup_old_data(self, days_to_keep: int = 30):
         """Remove data older than specified days."""
-        # Validate input to prevent SQL injection
-        if not isinstance(days_to_keep, int) or days_to_keep < 1 or days_to_keep > 3650:  # Max 10 years
-            raise ValueError("Days to keep must be a positive integer less than 3650")
-        
         with self.get_connection() as conn:
             conn.execute("""
-                DELETE FROM monitoring_results 
-                WHERE timestamp < NOW() - INTERVAL '{} days'
-            """.format(days_to_keep))
+                DELETE FROM monitoring_results
+                WHERE timestamp < now() - to_days(?::BIGINT)
+            """, (days_to_keep,))

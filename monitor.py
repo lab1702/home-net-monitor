@@ -192,14 +192,16 @@ class NetworkMonitor:
                 'overall_success': False
             }
         
-        # Determine overall success
+        # Determine overall success. At least one test is enabled here (the
+        # neither-enabled case returned above), so `else` covers ping-only and
+        # keeps overall_success always bound.
         if http_enabled and ping_enabled:
             # Both tests enabled - site is healthy if either works
             overall_success = http_result['success'] or ping_result['success']
         elif http_enabled:
             # Only HTTP test enabled
             overall_success = http_result['success']
-        elif ping_enabled:
+        else:
             # Only ping test enabled
             overall_success = ping_result['success']
         
