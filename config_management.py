@@ -168,4 +168,5 @@ def render_config_management():
                     st.error(f"Error adding configuration: {e}")
     
     st.markdown("---")
-    st.caption("See SITE_CONFIGURATION.md for HTTP vs. ping guidance and examples.")
+    st.caption("See SITE_CONFIGURATION.md for HTTP vs. ping guidance and examples. "
+               "Amazon's default ping target is now www.amazon.com.")
