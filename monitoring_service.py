@@ -1,5 +1,6 @@
 """Background monitoring service that runs continuously."""
 
+import logging
 import time
 from datetime import datetime
 import signal
@@ -8,10 +9,8 @@ import sys
 from monitor import NetworkMonitor
 from database import DatabaseManager
 import config
-from logging_config import get_logger
 
-# Configure logging
-logger = get_logger('monitoring_service')
+logger = logging.getLogger(__name__)
 
 
 class MonitoringService:
@@ -94,35 +93,7 @@ class MonitoringService:
                 time.sleep(5)  # Wait before retrying
         
         logger.info("Monitoring service stopped")
-    
-    def run_once(self):
-        """Run monitoring once and exit (useful for testing)."""
-        logger.info("Running single monitoring cycle...")
-        self.run_monitoring_cycle()
-        logger.info("Single monitoring cycle completed")
-
-
-def main():
-    """Main entry point for the monitoring service."""
-    import argparse
-    
-    parser = argparse.ArgumentParser(description='Network Monitoring Service')
-    parser.add_argument('--once', action='store_true', 
-                       help='Run monitoring once and exit')
-    parser.add_argument('--cleanup', action='store_true',
-                       help='Run data cleanup and exit')
-    
-    args = parser.parse_args()
-    
-    service = MonitoringService()
-    
-    if args.cleanup:
-        service.cleanup_old_data()
-    elif args.once:
-        service.run_once()
-    else:
-        service.start()
 
 
 if __name__ == "__main__":
-    main()
+    MonitoringService().start()

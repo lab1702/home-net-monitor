@@ -13,9 +13,9 @@ from config_management import render_config_management
 
 # Configure page
 st.set_page_config(
-    page_title=config.STREAMLIT_PAGE_TITLE,
-    page_icon=config.STREAMLIT_PAGE_ICON,
-    layout=config.STREAMLIT_LAYOUT,
+    page_title="Home Network Monitor",
+    page_icon="📡",
+    layout="wide",
     initial_sidebar_state="expanded"
 )
 

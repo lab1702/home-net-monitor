@@ -1,14 +1,13 @@
 """Database operations for the network monitor."""
 
+import logging
 import duckdb
 import pandas as pd
-from datetime import datetime
-from typing import List, Dict, Optional
+from typing import List, Dict
 import config
 from validators import validate_config
-from logging_config import get_logger
 
-logger = get_logger('database')
+logger = logging.getLogger(__name__)
 
 
 class DatabaseManager:
@@ -144,26 +143,14 @@ class DatabaseManager:
     def get_enabled_configurations(self) -> List[Dict]:
         """Retrieve only enabled monitoring configurations for the monitoring service."""
         with duckdb.connect(self.db_path) as conn:
-            results = conn.execute("""
-                SELECT * FROM monitoring_config 
-                WHERE enabled = true 
-                ORDER BY name
-            """).fetchall()
-            
-            # Convert to list of dictionaries for compatibility with existing code
-            configs = []
-            for row in results:
-                config = {
-                    'name': row[1],  # name column
-                    'url': row[2] if row[2] else None,  # url column
-                    'ping_host': row[3] if row[3] else None,  # ping_host column
-                    'enabled': row[4],  # enabled column
-                    'enable_http': row[5],  # enable_http column
-                    'enable_ping': row[6]   # enable_ping column
-                }
-                configs.append(config)
-            
-            return configs
+            # fetchall (not .df()) so NULL stays None rather than becoming nan,
+            # which monitor_site treats as truthy and would .strip().
+            cur = conn.execute("""
+                SELECT name, url, ping_host, enabled, enable_http, enable_ping
+                FROM monitoring_config WHERE enabled = true ORDER BY name
+            """)
+            cols = [c[0] for c in cur.description]
+            return [dict(zip(cols, row)) for row in cur.fetchall()]
 
     def initialize_default_configurations(self):
         """Initialize default monitoring configurations if none exist."""

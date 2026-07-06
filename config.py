@@ -1,7 +1,6 @@
 """Configuration settings for the home network monitor."""
 
 import os
-from typing import List, Dict
 
 # Database configuration
 DATABASE_PATH = os.getenv("DATABASE_PATH", "network_monitor.db")
@@ -64,8 +63,3 @@ CHECK_INTERVAL_SECONDS = 60  # Check sites once per minute
 HTTP_TIMEOUT_SECONDS = 10
 PING_TIMEOUT_SECONDS = 5
 PING_COUNT = 3
-
-# Streamlit configuration
-STREAMLIT_PAGE_TITLE = "Home Network Monitor"
-STREAMLIT_PAGE_ICON = "📡"
-STREAMLIT_LAYOUT = "wide"

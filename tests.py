@@ -7,7 +7,6 @@ from unittest.mock import patch, MagicMock
 # Import modules to test
 from validators import validate_config
 from database import DatabaseManager
-from logging_config import get_logger
 
 # Simple assertion function to replace pytest
 def assert_equal(actual, expected, message=""):
@@ -188,21 +187,12 @@ class TestDatabaseManager:
         assert_equal(enabled_configs[0]['name'], 'Enabled Site')
 
 
-class TestLoggingConfig:
-    """Test cases for the logging configuration."""
-
-    def test_get_logger_creates_named_logger(self):
-        """Test that get_logger creates a logger with the correct name."""
-        logger = get_logger('test_module')
-        assert_equal(logger.name, 'home_net_monitor.test_module')
-
-
 if __name__ == '__main__':
     # Run tests if this file is executed directly
     import sys
     
     # Simple test runner
-    test_classes = [TestValidators, TestDatabaseManager, TestLoggingConfig]
+    test_classes = [TestValidators, TestDatabaseManager]
     
     for test_class in test_classes:
         test_instance = test_class()

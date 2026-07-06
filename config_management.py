@@ -2,9 +2,8 @@
 
 import streamlit as st
 import pandas as pd
-from typing import Dict, Optional
 from database import DatabaseManager
-from validators import validate_config as validate_config_core
+from validators import validate_config
 
 
 def render_config_management():
@@ -102,22 +101,23 @@ def render_config_management():
                         delete_button = st.form_submit_button("Delete Configuration", type="secondary")
                     
                     if update_button:
-                        if validate_config(name, url, ping_host, enable_http, enable_ping):
-                            try:
-                                config_data = {
-                                    'name': name,
-                                    'url': url.strip() if url.strip() else None,
-                                    'ping_host': ping_host.strip() if ping_host.strip() else None,
-                                    'enabled': enabled,
-                                    'enable_http': enable_http,
-                                    'enable_ping': enable_ping
-                                }
-                                
-                                db.update_configuration(config_id, config_data)
-                                st.success(f"Configuration '{name}' updated successfully!")
-                                st.rerun()
-                            except Exception as e:
-                                st.error(f"Error updating configuration: {e}")
+                        try:
+                            validate_config({'name': name, 'url': url, 'ping_host': ping_host,
+                                             'enable_http': enable_http, 'enable_ping': enable_ping})
+                            db.update_configuration(config_id, {
+                                'name': name,
+                                'url': url.strip() if url.strip() else None,
+                                'ping_host': ping_host.strip() if ping_host.strip() else None,
+                                'enabled': enabled,
+                                'enable_http': enable_http,
+                                'enable_ping': enable_ping
+                            })
+                            st.success(f"Configuration '{name}' updated successfully!")
+                            st.rerun()
+                        except ValueError as e:
+                            st.error(str(e))
+                        except Exception as e:
+                            st.error(f"Error updating configuration: {e}")
                     
                     if delete_button:
                         try:
@@ -149,22 +149,23 @@ def render_config_management():
             submit_button = st.form_submit_button("Add Configuration", type="primary")
             
             if submit_button:
-                if validate_config(name, url, ping_host, enable_http, enable_ping):
-                    try:
-                        config_data = {
-                            'name': name,
-                            'url': url.strip() if url.strip() else None,
-                            'ping_host': ping_host.strip() if ping_host.strip() else None,
-                            'enabled': enabled,
-                            'enable_http': enable_http,
-                            'enable_ping': enable_ping
-                        }
-                        
-                        db.insert_configuration(config_data)
-                        st.success(f"Configuration '{name}' added successfully!")
-                        st.rerun()
-                    except Exception as e:
-                        st.error(f"Error adding configuration: {e}")
+                try:
+                    validate_config({'name': name, 'url': url, 'ping_host': ping_host,
+                                     'enable_http': enable_http, 'enable_ping': enable_ping})
+                    db.insert_configuration({
+                        'name': name,
+                        'url': url.strip() if url.strip() else None,
+                        'ping_host': ping_host.strip() if ping_host.strip() else None,
+                        'enabled': enabled,
+                        'enable_http': enable_http,
+                        'enable_ping': enable_ping
+                    })
+                    st.success(f"Configuration '{name}' added successfully!")
+                    st.rerun()
+                except ValueError as e:
+                    st.error(str(e))
+                except Exception as e:
+                    st.error(f"Error adding configuration: {e}")
     
     # Configuration guidelines
     st.markdown("---")
@@ -202,19 +203,3 @@ def render_config_management():
     - URL is required if HTTP test is enabled
     - Ping host is required if Ping test is enabled
     """)
-
-
-def validate_config(name: str, url: str, ping_host: str, enable_http: bool, enable_ping: bool) -> bool:
-    """Wrapper for validate_config to handle errors in the Streamlit interface."""
-    try:
-        validate_config_core({
-            'name': name,
-            'url': url,
-            'ping_host': ping_host,
-            'enable_http': enable_http,
-            'enable_ping': enable_ping
-        })
-        return True
-    except ValueError as e:
-        st.error(str(e))
-        return False

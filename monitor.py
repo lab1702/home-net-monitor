@@ -6,18 +6,36 @@ import requests
 import re
 import logging
 from datetime import datetime
-from typing import Dict, Optional, Tuple, List
+from typing import Dict, List
 import config
 
-# Configure logging
-from logging_config import get_logger
-logger = get_logger('monitor')
+logger = logging.getLogger(__name__)
 
 
 def _failed_ping() -> Dict:
     """A ping result representing total failure (100% loss, no timings)."""
     return {'success': False, 'avg_ms': None, 'min_ms': None,
             'max_ms': None, 'packet_loss_percent': 100.0}
+
+
+def _result_row(timestamp, site_config, *, http_success=None, ping_success=None,
+                ping_packet_loss_percent=None, overall_success=False) -> Dict:
+    """A monitoring-result row with no successful measurements, for failure paths."""
+    return {
+        'timestamp': timestamp,
+        'site_name': site_config['name'],
+        'site_url': site_config.get('url'),
+        'ping_host': site_config.get('ping_host'),
+        'http_status_code': None,
+        'http_response_time_ms': None,
+        'http_success': http_success,
+        'ping_avg_ms': None,
+        'ping_min_ms': None,
+        'ping_max_ms': None,
+        'ping_packet_loss_percent': ping_packet_loss_percent,
+        'ping_success': ping_success,
+        'overall_success': overall_success,
+    }
 
 
 class NetworkMonitor:
@@ -169,22 +187,7 @@ class NetworkMonitor:
         # Validate that at least one test is enabled
         if not http_enabled and not ping_enabled:
             logger.error(f"Site {site_config['name']}: No tests enabled - must specify either 'url' or 'ping_host'")
-            # Return a failed result
-            return {
-                'timestamp': timestamp,
-                'site_name': site_config['name'],
-                'site_url': site_config.get('url'),
-                'ping_host': site_config.get('ping_host'),
-                'http_status_code': None,
-                'http_response_time_ms': None,
-                'http_success': None,
-                'ping_avg_ms': None,
-                'ping_min_ms': None,
-                'ping_max_ms': None,
-                'ping_packet_loss_percent': None,
-                'ping_success': None,
-                'overall_success': False
-            }
+            return _result_row(timestamp, site_config)
         
         # Determine overall success. At least one test is enabled here (the
         # neither-enabled case returned above), so `else` covers ping-only and
@@ -240,22 +243,12 @@ class NetworkMonitor:
                 results.append(result)
             except Exception as e:
                 logger.error(f"Error monitoring {site_config['name']}: {e}", exc_info=True)
-                # Create a failed result
-                failed_result = {
-                    'timestamp': datetime.now(),
-                    'site_name': site_config['name'],
-                    'site_url': site_config.get('url'),
-                    'ping_host': site_config.get('ping_host'),
-                    'http_status_code': None,
-                    'http_response_time_ms': None,
-                    'http_success': False,
-                    'ping_avg_ms': None,
-                    'ping_min_ms': None,
-                    'ping_max_ms': None,
-                    'ping_packet_loss_percent': 100.0 if site_config.get('ping_host') else None,
-                    'ping_success': False if site_config.get('ping_host') else None,
-                    'overall_success': False
-                }
-                results.append(failed_result)
+                has_ping = bool(site_config.get('ping_host'))
+                results.append(_result_row(
+                    datetime.now(), site_config,
+                    http_success=False,
+                    ping_success=False if has_ping else None,
+                    ping_packet_loss_percent=100.0 if has_ping else None,
+                ))
         
         return results

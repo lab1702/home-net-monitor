@@ -57,8 +57,8 @@ streamlit run dashboard.py
 ### Option 3: Manual Testing
 
 ```bash
-# Run a single monitoring cycle
-python monitoring_service.py --once
+# Run the monitoring service
+python monitoring_service.py
 
 # View the dashboard
 streamlit run dashboard.py
@@ -128,7 +128,6 @@ home-net-monitor/
 ├── dashboard.py            # Streamlit dashboard
 ├── config_management.py    # Configuration management UI
 ├── validators.py           # Centralized input validation utilities
-├── logging_config.py       # Centralized logging configuration
 ├── tests.py               # Unit tests
 ├── requirements.txt        # Python dependencies
 ├── Dockerfile             # Docker container definition
@@ -142,14 +141,8 @@ home-net-monitor/
 ### Monitoring Service
 
 ```bash
-# Run continuous monitoring
+# Run continuous monitoring (checks on an interval, nightly cleanup built in)
 python monitoring_service.py
-
-# Run single check and exit
-python monitoring_service.py --once
-
-# Clean up old data
-python monitoring_service.py --cleanup
 ```
 
 ### Dashboard
