@@ -119,6 +119,9 @@ class TestDatabaseManager:
         self.temp_db = tempfile.NamedTemporaryFile(delete=False)
         self.temp_db.close()
         self.db_path = self.temp_db.name
+        # DuckDB won't open an existing empty file; remove it so it creates a
+        # fresh valid database at this path.
+        os.unlink(self.db_path)
         
         # Mock config.DATABASE_PATH to use temp file
         with patch('config.DATABASE_PATH', self.db_path):
@@ -203,24 +206,21 @@ if __name__ == '__main__':
     
     for test_class in test_classes:
         test_instance = test_class()
-        
-        # Run setup if it exists
-        if hasattr(test_instance, 'setup_method'):
-            test_instance.setup_method()
-        
-        # Run all test methods
+
+        # setup_method/teardown_method run per test method (pytest semantics),
+        # so each test gets an isolated fixture instead of leaking state.
         for method_name in dir(test_instance):
             if method_name.startswith('test_'):
                 print(f"Running {test_class.__name__}.{method_name}...")
                 try:
-                    method = getattr(test_instance, method_name)
-                    method()
+                    if hasattr(test_instance, 'setup_method'):
+                        test_instance.setup_method()
+                    getattr(test_instance, method_name)()
                     print(f"  ✓ PASSED")
                 except Exception as e:
                     print(f"  ✗ FAILED: {e}")
-        
-        # Run teardown if it exists
-        if hasattr(test_instance, 'teardown_method'):
-            test_instance.teardown_method()
+                finally:
+                    if hasattr(test_instance, 'teardown_method'):
+                        test_instance.teardown_method()
     
     print("\nTest run completed.")
