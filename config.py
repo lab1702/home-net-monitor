@@ -39,7 +39,7 @@ MONITOR_SITES = [
     {
         "name": "Amazon",
         "url": "https://www.amazon.com",
-        "ping_host": "amazon.com"
+        "ping_host": "www.amazon.com"
     },
     {
         "name": "Microsoft",
