@@ -230,6 +230,23 @@ class TestRegressions(TestDatabaseManager):
         assert pd.isna(status.loc['New', 'overall_success'])
         assert len(self.db.get_recent_results()) == 4
 
+    def test_omitted_flags_match_validation_and_observations(self):
+        from monitor import NetworkMonitor
+        monitor = NetworkMonitor()
+        self.db.insert_configuration({'name': 'HTTP', 'url': 'https://example.com', 'enable_http': True})
+        self.db.insert_configuration({'name': 'Ping', 'ping_host': 'example.com', 'enable_ping': True})
+        sites = {site['name']: site for site in self.db.get_enabled_configurations()}
+        assert sites['HTTP']['enable_ping'] is False
+        assert sites['Ping']['enable_http'] is False
+        with patch.object(monitor, 'check_http', return_value={'success': True, 'status_code': 200, 'response_time_ms': 1}), patch.object(monitor, 'ping_host', return_value={'success': True, 'avg_ms': 1, 'min_ms': 1, 'max_ms': 1, 'packet_loss_percent': 0}):
+            for site in sites.values():
+                self.db.insert_monitoring_result(monitor.monitor_site(site))
+        status = self.db.get_current_status()['overall_success']
+        assert status.notna().all() and status.all()
+        config_id = int(self.db.get_all_configurations().set_index('name').loc['HTTP', 'id'])
+        self.db.update_configuration(config_id, {'name': 'HTTP', 'url': 'https://example.com', 'enable_http': True})
+        assert self.db.get_all_configurations().set_index('name').loc['HTTP', 'enable_ping'] == False
+
     def test_mode_changes_require_matching_observations(self):
         import pandas as pd
         from datetime import datetime

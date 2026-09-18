@@ -159,8 +159,8 @@ class DatabaseManager:
             # Validate configuration using centralized validation
             validate_config(config)
             
-            enable_http = config.get('enable_http', True)
-            enable_ping = config.get('enable_ping', True)
+            enable_http = config.get('enable_http', False)
+            enable_ping = config.get('enable_ping', False)
             
             with database_connection(self.db_path) as conn:
                 conn.execute("""
@@ -195,8 +195,8 @@ class DatabaseManager:
                 config.get('url'),
                 config.get('ping_host'),
                 config.get('enabled', True),
-                config.get('enable_http', True),
-                config.get('enable_ping', True),
+                config.get('enable_http', False),
+                config.get('enable_ping', False),
                 config_id
             ))
 
