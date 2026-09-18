@@ -67,6 +67,9 @@ streamlit run dashboard.py --server.address=127.0.0.1
 ## Dashboard Features
 
 ### Current Status
+
+HTTP checks accept successful 2xx responses, including API endpoints returning 204.
+
 - Overall uptime percentage
 - Real-time status of each monitored site
 - Latest response times and packet loss
@@ -233,7 +236,7 @@ All changes, including features, bug fixes, and enhancements, should be document
 
 To extend the application:
 
-1. **Add new sites**: Modify `MONITOR_SITES` in `config.py`
+1. **Add new sites**: Use Configuration Management for an existing database; edit `MONITOR_SITES` in `config.py` only to change defaults for new databases
 2. **Custom metrics**: Extend the monitoring logic in `monitor.py`
 3. **Dashboard features**: Add new charts or views in `dashboard.py`
 4. **Database queries**: Add new methods to `database.py`

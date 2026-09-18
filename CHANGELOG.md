@@ -29,6 +29,7 @@ All notable changes to the Home Network Monitor project will be documented in th
 - **Query Parameterization**: Replaced string formatting with proper DuckDB-compatible queries
 
 ### Fixed
+- Accept all successful HTTP 2xx responses, including 204, and clarify that config.py defaults apply only to newly created databases.
 - Bind documented local Streamlit launches to localhost to keep unauthenticated configuration controls off the LAN by default.
 - Configure INFO-level service logging so startup, successful checks, and cleanup progress are visible in local and Docker logs.
 - Align omitted HTTP/ping flags in database writes with validation so single-probe API configurations can report current status.

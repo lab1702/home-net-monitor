@@ -62,7 +62,7 @@ def _http_headers(url):
                 if response.is_redirect:
                     url = urljoin(url, response.headers['Location'])
                     continue
-                return {'success': response.status_code == 200,
+                return {'success': 200 <= response.status_code < 300,
                         'status_code': response.status_code,
                         'response_time_ms': (time.monotonic() - start) * 1000}
     raise requests.exceptions.TooManyRedirects('More than five redirects')

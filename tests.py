@@ -542,6 +542,23 @@ class TestMonitorRegressions:
             response.raw.stream.assert_not_called()
             response.raw.close.assert_called()
 
+    def test_http_accepts_successful_status_range(self):
+        import requests
+        from monitor import _http_headers
+        for status, expected_success in ((200, True), (201, True), (204, True),
+                                         (206, True), (299, True), (300, False),
+                                         (404, False), (500, False)):
+            response = requests.Response()
+            response.status_code = status
+            response.url = 'https://example.com'
+            response.raw = MagicMock()
+            with patch('requests.adapters.HTTPAdapter.send', return_value=response):
+                result = _http_headers('https://example.com')
+            assert result['success'] is expected_success
+            assert result['status_code'] == status
+            response.raw.read.assert_not_called()
+            response.raw.stream.assert_not_called()
+
     def test_http_worker_is_terminated_at_deadline(self):
         from monitor import NetworkMonitor
         context = MagicMock()

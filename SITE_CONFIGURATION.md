@@ -327,17 +327,17 @@ The system currently monitors these sites:
 2. **Add/Edit/Delete** sites using the web interface
 3. **Changes** take effect immediately without service restart
 
-**Using config.py (Legacy Method):**
-1. **Edit** `config.py` and modify the `MONITOR_SITES` list
-2. **Rebuild** containers: `docker compose build`
-3. **Restart** services: `docker compose up -d`
-4. **Verify** in logs: `docker logs home-net-monitor`
+**Using config.py for initial defaults:**
+`MONITOR_SITES` seeds only a newly created database. Edit it before the first
+launch to customize initial targets, rebuilding the Docker image when needed.
+For an existing database, use the Configuration Management interface. Rebuilding
+or restarting preserves saved configurations and does not reapply defaults.
 
 ## Troubleshooting
 
 - **Ping fails but HTTP works**: Normal for many websites
 - **Both fail**: Check if the site is actually down or URL is correct
 - **Local sites fail**: Verify IP addresses and network connectivity
-- **Changes not applied**: Make sure to rebuild Docker containers
+- **Changes not applied**: Update existing targets through Configuration Management and ensure the dashboard and monitor use the same database
 
 For more details, see the main [README.md](README.md) file.
