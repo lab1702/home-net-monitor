@@ -29,6 +29,7 @@ All notable changes to the Home Network Monitor project will be documented in th
 - **Query Parameterization**: Replaced string formatting with proper DuckDB-compatible queries
 
 ### Fixed
+- Configure INFO-level service logging so startup, successful checks, and cleanup progress are visible in local and Docker logs.
 - Align omitted HTTP/ping flags in database writes with validation so single-probe API configurations can report current status.
 - Use UTC for measurements, health heartbeats, and query cutoffs; preserve and migrate legacy local timestamps, and order current observations by insertion sequence across clock rollbacks.
 - Use structured .NET ping results on Windows instead of localized command-output labels.
