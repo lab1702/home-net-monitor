@@ -142,7 +142,7 @@ class NetworkMonitor:
                     r'Minimum = (\d+)ms, Maximum = (\d+)ms, Average = (\d+)ms', output)
                 if windows_timing:
                     min_ms, max_ms, avg_ms = map(float, windows_timing.groups())
-            success = packet_loss < 100.0
+            success = packet_loss < 100.0 and avg_ms is not None
             
             return {
                 'success': success,
@@ -284,10 +284,11 @@ class NetworkMonitor:
                 results.append(result)
             except Exception as e:
                 logger.error(f"Error monitoring {site_config['name']}: {e}", exc_info=True)
-                has_ping = bool(site_config.get('ping_host'))
+                has_http = bool(site_config.get('url')) and site_config.get('enable_http', True)
+                has_ping = bool(site_config.get('ping_host')) and site_config.get('enable_ping', True)
                 results.append(_result_row(
                     datetime.now(), site_config,
-                    http_success=False,
+                    http_success=False if has_http else None,
                     ping_success=False if has_ping else None,
                     ping_packet_loss_percent=100.0 if has_ping else None,
                 ))

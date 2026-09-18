@@ -139,9 +139,6 @@ log/
 .DS_Store
 Thumbs.db
 
-# Docker
-.dockerignore
-
 # Temporary Files
 *.tmp
 *.temp

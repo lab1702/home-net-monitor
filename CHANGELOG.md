@@ -29,6 +29,9 @@ All notable changes to the Home Network Monitor project will be documented in th
 - **Query Parameterization**: Replaced string formatting with proper DuckDB-compatible queries
 
 ### Fixed
+- Invalidate current status when enabled test types change and preserve skipped checks in error records.
+- Exclude runtime data, credentials, and Git history from Docker build contexts.
+- Reject unreachable Windows ping responses without echo timings, distinguish partial from total outages, and connect the add-site shortcut to its tab.
 - Serialize shared DuckDB access across application processes and preserve intentionally empty configuration stores.
 - Bound HTTP checks with a worker deadline and avoid downloading response bodies, including redirects.
 - Correct decimal packet loss and Linux, macOS, and Windows ping arguments and output handling.

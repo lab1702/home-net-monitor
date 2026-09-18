@@ -283,7 +283,10 @@ class DatabaseManager:
                 )
                 SELECT c.name AS site_name,
                        r.* EXCLUDE (site_name, overall_success),
-                       CASE WHEN r.timestamp > ? THEN r.overall_success
+                       CASE WHEN r.timestamp > ?
+                            AND (r.http_success IS NOT NULL) = c.enable_http
+                            AND (r.ping_success IS NOT NULL) = c.enable_ping
+                            THEN r.overall_success
                             ELSE NULL END AS overall_success
                 FROM monitoring_config c
                 LEFT JOIN ranked_results r ON r.site_name = c.name AND r.rn = 1

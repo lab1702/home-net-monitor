@@ -39,13 +39,14 @@ def render_config_management():
         st.markdown("---")
         st.markdown("**Quick Actions:**")
         if st.button("✏️ Add New Site", use_container_width=True):
-            st.session_state.config_tab = "add"
+            st.session_state.config_tab = "➕ Add New Configuration"
         if st.button("📊 View Dashboard", use_container_width=True):
             st.session_state.page = "Dashboard"
             st.rerun()
 
     # Create tabs for different operations
-    tab1, tab2 = st.tabs(["📋 View/Edit Configurations", "➕ Add New Configuration"])
+    tab1, tab2 = st.tabs(["📋 View/Edit Configurations", "➕ Add New Configuration"],
+                         key="config_tab", on_change="rerun")
     
     with tab1:
         st.subheader("Current Configurations")

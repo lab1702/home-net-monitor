@@ -1,0 +1,12 @@
+# Include only the maintained inputs required by the application image.
+*
+!Dockerfile
+!requirements.txt
+!config.py
+!config_management.py
+!dashboard.py
+!database.py
+!health_check.py
+!monitor.py
+!monitoring_service.py
+!validators.py

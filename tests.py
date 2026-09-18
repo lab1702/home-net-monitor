@@ -229,6 +229,49 @@ class TestRegressions(TestDatabaseManager):
         assert pd.isna(status.loc['New', 'overall_success'])
         assert len(self.db.get_recent_results()) == 4
 
+    def test_mode_changes_require_matching_observations(self):
+        import pandas as pd
+        from datetime import datetime
+        from monitor import _result_row
+        site = self._site(ping_host='example.com', enable_ping=True)
+        result = _result_row(datetime.now(), site, http_success=True,
+                             ping_success=False, overall_success=True)
+        self.db.insert_monitoring_result(result)
+        assert self.db.get_current_status().iloc[0]['overall_success'] == True
+        site['enable_http'] = False
+        self.db.update_configuration(int(self.db.get_all_configurations().iloc[0]['id']), site)
+        assert pd.isna(self.db.get_current_status().iloc[0]['overall_success'])
+        result.update(timestamp=datetime.now(), http_success=None, overall_success=False)
+        self.db.insert_monitoring_result(result)
+        assert self.db.get_current_status().iloc[0]['overall_success'] == False
+
+    def test_unknown_and_failed_sites_are_partial_outage(self):
+        from streamlit.testing.v1 import AppTest
+        from datetime import datetime
+        from monitor import _result_row
+        import streamlit as st
+        site = self._site('Failed')
+        self.db.insert_monitoring_result(_result_row(datetime.now(), site, http_success=False))
+        self._site('Pending')
+        st.cache_resource.clear()
+        with patch('database.DatabaseManager', return_value=self.db):
+            page = AppTest.from_file('dashboard.py').run()
+        assert not page.exception and not page.error
+        assert any('Partial Outage' in header.value for header in page.header)
+        st.cache_resource.clear()
+
+    def test_add_site_shortcut_selects_add_tab(self):
+        from streamlit.testing.v1 import AppTest
+        def app():
+            from config_management import render_config_management
+            render_config_management()
+        with patch('config_management.DatabaseManager', return_value=self.db):
+            page = AppTest.from_function(app).run()
+            next(button for button in page.button if button.label == '✏️ Add New Site').click()
+            page.run()
+        assert not page.exception
+        assert page.session_state['config_tab'] == '➕ Add New Configuration'
+
     def test_stale_status_and_changed_target_are_unknown(self):
         import config
         import pandas as pd
@@ -338,6 +381,28 @@ class TestMonitorRegressions:
             assert args[args.index(timeout_flag) + 1] == timeout
             assert result['packet_loss_percent'] == 33
             assert result['avg_ms'] == 2
+
+    def test_windows_unreachable_is_not_success(self):
+        from monitor import NetworkMonitor
+        output = ('Reply from 192.0.2.1: Destination host unreachable.\n'
+                  'Packets: Sent = 3, Received = 3, Lost = 0 (0% loss)')
+        assert NetworkMonitor()._parse_ping_output(output)['success'] is False
+
+    def test_failure_rows_keep_disabled_checks_null(self):
+        from monitor import NetworkMonitor
+        monitor = NetworkMonitor()
+        site = {'name': 'Ping only', 'url': 'https://example.com',
+                'ping_host': 'example.com', 'enable_http': False, 'enable_ping': True}
+        with patch.object(monitor, 'monitor_site', side_effect=ValueError('probe failed')):
+            result = monitor.monitor_all_sites([site])[0]
+        assert result['http_success'] is None
+        assert result['ping_success'] is False
+        site.update(enable_http=True, enable_ping=False)
+        with patch.object(monitor, 'monitor_site', side_effect=ValueError('probe failed')):
+            result = monitor.monitor_all_sites([site])[0]
+        assert result['http_success'] is False
+        assert result['ping_success'] is None
+        assert result['ping_packet_loss_percent'] is None
 
     def test_http_never_consumes_redirect_or_final_bodies(self):
         import requests

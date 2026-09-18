@@ -107,7 +107,7 @@ try:
         elif unknown_sites and online_sites + unknown_sites == total_sites:
             status_icon = "⚪"
             status_text = "Status Incomplete"
-        elif online_sites > 0:
+        elif online_sites > 0 or unknown_sites > 0:
             status_icon = "🟡"  # Some sites down
             status_text = "Partial Outage"
         else:
