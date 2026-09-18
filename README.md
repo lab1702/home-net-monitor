@@ -51,7 +51,7 @@ pip install -r requirements.txt
 python monitoring_service.py &
 
 # Start the dashboard
-streamlit run dashboard.py
+streamlit run dashboard.py --server.address=127.0.0.1
 ```
 
 ### Option 3: Manual Testing
@@ -61,7 +61,7 @@ streamlit run dashboard.py
 python monitoring_service.py
 
 # View the dashboard
-streamlit run dashboard.py
+streamlit run dashboard.py --server.address=127.0.0.1
 ```
 
 ## Dashboard Features
@@ -149,10 +149,10 @@ python monitoring_service.py
 
 ```bash
 # Start dashboard (default port 8501)
-streamlit run dashboard.py
+streamlit run dashboard.py --server.address=127.0.0.1
 
 # Start on custom port
-streamlit run dashboard.py --server.port 8080
+streamlit run dashboard.py --server.address=127.0.0.1 --server.port 8080
 ```
 
 ### Docker
@@ -197,7 +197,7 @@ Here are some important environment variables that can be configured:
 
 ## Security Considerations
 
-The configuration interface has no authentication. Docker examples bind it to
+The configuration interface has no authentication. Local and Docker examples bind it to
 localhost. Use an authenticated proxy or SSH tunnel for remote access; do not
 publish the management port directly to an untrusted network.
 

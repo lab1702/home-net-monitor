@@ -99,7 +99,7 @@ If DuckDB fails to install due to compilation errors:
 After completing the setup:
 1. See [SITE_CONFIGURATION.md](SITE_CONFIGURATION.md) for configuration options
 2. Start the monitoring service: `python monitoring_service.py &`
-3. Run the dashboard with `streamlit run dashboard.py`
+3. Run the dashboard with `streamlit run dashboard.py --server.address=127.0.0.1`
 4. Open your browser to http://localhost:8501
 5. Use the **Configuration Management** interface to manage monitoring targets
 
