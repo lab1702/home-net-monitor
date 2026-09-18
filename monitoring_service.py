@@ -40,16 +40,16 @@ class MonitoringService:
             self.site_configs = self.db.get_enabled_configurations()
             
             logger.info("Starting monitoring cycle...")
-            results = self.monitor.monitor_all_sites(self.site_configs)
-            
-            # Store results in database
-            for result in results:
-                self.db.insert_monitoring_result(result)
-            
+            stored_count = 0
+            for site in self.site_configs:
+                for result in self.monitor.monitor_all_sites([site]):
+                    self.db.insert_monitoring_result(result)
+                    stored_count += 1
+                self.db.record_heartbeat()
+            # A cycle with no enabled sites is still successful service progress.
             self.db.record_heartbeat()
+            logger.info(f"Completed monitoring cycle, stored {stored_count} results")
 
-            logger.info(f"Completed monitoring cycle, stored {len(results)} results")
-            
         except Exception as e:
             logger.error(f"Error in monitoring cycle: {e}", exc_info=True)
     
@@ -68,6 +68,7 @@ class MonitoringService:
         
         # Load initial configurations to report count
         self.site_configs = self.db.get_enabled_configurations()
+        self.db.record_heartbeat()
         logger.info(f"Monitoring {len(self.site_configs)} sites every {config.CHECK_INTERVAL_SECONDS} seconds")
 
         # ponytail: plain interval loop instead of the `schedule` dep. Cleanup

@@ -29,6 +29,7 @@ All notable changes to the Home Network Monitor project will be documented in th
 - **Query Parameterization**: Replaced string formatting with proper DuckDB-compatible queries
 
 ### Fixed
+- Scale stale-data and health deadlines to configured probe workload, persist each site's results immediately, and record startup and per-site progress for long cycles.
 - Invalidate current status when enabled test types change and preserve skipped checks in error records.
 - Exclude runtime data, credentials, and Git history from Docker build contexts.
 - Reject unreachable Windows ping responses without echo timings, distinguish partial from total outages, and connect the add-site shortcut to its tab.

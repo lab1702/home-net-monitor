@@ -309,6 +309,42 @@ class TestRegressions(TestDatabaseManager):
         with patch('config.DATABASE_PATH', self.db_path):
             assert health_check.main() == 0
 
+    def test_long_valid_cycle_preserves_status_and_health(self):
+        from datetime import datetime, timedelta
+        from database import database_connection, monitoring_max_age_seconds
+        import health_check
+        for index in range(40):
+            self._result(self._site(f'Site {index}'), 400)
+        with database_connection(self.db_path) as conn:
+            budget = monitoring_max_age_seconds(conn)
+            assert budget >= 800
+            conn.execute('INSERT INTO monitoring_heartbeat VALUES (1, ?)',
+                         (datetime.now() - timedelta(seconds=400),))
+        assert self.db.get_current_status()['overall_success'].all()
+        with patch('config.DATABASE_PATH', self.db_path):
+            assert health_check.main() == 0
+            with database_connection(self.db_path) as conn:
+                conn.execute('UPDATE monitoring_heartbeat SET completed_at = ?',
+                             (datetime.now() - timedelta(seconds=budget + 1),))
+            assert health_check.main() == 1
+
+    def test_results_are_persisted_before_probing_next_site(self):
+        from monitoring_service import MonitoringService
+        from monitor import _result_row
+        from datetime import datetime
+        sites = [self._site('First'), self._site('Second')]
+        service = MonitoringService.__new__(MonitoringService)
+        service.db = self.db
+        service.monitor = MagicMock()
+        def probe(configs):
+            if configs[0]['name'] == 'Second':
+                assert self.db.get_recent_results()['site_name'].tolist() == ['First']
+            return [_result_row(datetime.now(), configs[0], http_success=True, overall_success=True)]
+        service.monitor.monitor_all_sites.side_effect = probe
+        service.run_monitoring_cycle()
+        assert len(self.db.get_recent_results()) == 2
+        assert service.monitor.monitor_all_sites.call_count == 2
+
     def test_database_access_waits_for_other_process(self):
         import subprocess
         import sys

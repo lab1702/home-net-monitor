@@ -39,6 +39,19 @@ def database_connection(db_path):
                 fcntl.flock(lock.fileno(), fcntl.LOCK_UN)
 
 
+def monitoring_max_age_seconds(conn):
+    """Allow two worst-case serial cycles before declaring observations stale."""
+    http_count, ping_count = conn.execute("""
+        SELECT COUNT(*) FILTER (WHERE enable_http),
+               COUNT(*) FILTER (WHERE enable_ping)
+        FROM monitoring_config WHERE enabled = true
+    """).fetchone()
+    http_budget = config.HTTP_TIMEOUT_SECONDS + 2  # Worker shutdown allowance.
+    ping_budget = config.PING_COUNT * (config.PING_TIMEOUT_SECONDS + 1) + 5
+    cycle_budget = http_count * http_budget + ping_count * ping_budget
+    return max(config.STATUS_MAX_AGE_SECONDS, 2 * cycle_budget)
+
+
 class DatabaseManager:
     """Manages database operations for network monitoring data."""
     
@@ -212,7 +225,7 @@ class DatabaseManager:
                   site_config['enable_http'], site_config['enable_ping']))
 
     def record_heartbeat(self):
-        """Record completion even when no sites are enabled."""
+        """Record startup or persisted cycle progress, including empty cycles."""
         with database_connection(self.db_path) as conn:
             conn.execute("""
                 INSERT INTO monitoring_heartbeat VALUES (1, ?)
@@ -294,7 +307,7 @@ class DatabaseManager:
                     AND r.ping_host IS NOT DISTINCT FROM c.ping_host
                 WHERE c.enabled = true
             """
-            cutoff = datetime.now() - timedelta(seconds=config.STATUS_MAX_AGE_SECONDS)
+            cutoff = datetime.now() - timedelta(seconds=monitoring_max_age_seconds(conn))
             return conn.execute(query, (cutoff,)).df()
 
     def cleanup_old_data(self, days_to_keep: int = 30):
