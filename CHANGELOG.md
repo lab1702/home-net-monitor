@@ -29,6 +29,8 @@ All notable changes to the Home Network Monitor project will be documented in th
 - **Query Parameterization**: Replaced string formatting with proper DuckDB-compatible queries
 
 ### Fixed
+- Use UTC for measurements, health heartbeats, and query cutoffs; preserve and migrate legacy local timestamps, and order current observations by insertion sequence across clock rollbacks.
+- Use structured .NET ping results on Windows instead of localized command-output labels.
 - Scale stale-data and health deadlines to configured probe workload, persist each site's results immediately, and record startup and per-site progress for long cycles.
 - Invalidate current status when enabled test types change and preserve skipped checks in error records.
 - Exclude runtime data, credentials, and Git history from Docker build contexts.

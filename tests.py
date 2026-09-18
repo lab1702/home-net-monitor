@@ -2,6 +2,7 @@
 
 import tempfile
 import os
+import config
 from unittest.mock import patch, MagicMock
 
 # Import modules to test
@@ -191,7 +192,7 @@ class TestRegressions(TestDatabaseManager):
     def _result(self, site, age_seconds=0):
         from datetime import datetime, timedelta
         from monitor import _result_row
-        result = _result_row(datetime.now() - timedelta(seconds=age_seconds), site,
+        result = _result_row(config.utc_now() - timedelta(seconds=age_seconds), site,
                              http_success=True, overall_success=True)
         self.db.insert_monitoring_result(result)
 
@@ -234,14 +235,14 @@ class TestRegressions(TestDatabaseManager):
         from datetime import datetime
         from monitor import _result_row
         site = self._site(ping_host='example.com', enable_ping=True)
-        result = _result_row(datetime.now(), site, http_success=True,
+        result = _result_row(config.utc_now(), site, http_success=True,
                              ping_success=False, overall_success=True)
         self.db.insert_monitoring_result(result)
         assert self.db.get_current_status().iloc[0]['overall_success'] == True
         site['enable_http'] = False
         self.db.update_configuration(int(self.db.get_all_configurations().iloc[0]['id']), site)
         assert pd.isna(self.db.get_current_status().iloc[0]['overall_success'])
-        result.update(timestamp=datetime.now(), http_success=None, overall_success=False)
+        result.update(timestamp=config.utc_now(), http_success=None, overall_success=False)
         self.db.insert_monitoring_result(result)
         assert self.db.get_current_status().iloc[0]['overall_success'] == False
 
@@ -251,7 +252,7 @@ class TestRegressions(TestDatabaseManager):
         from monitor import _result_row
         import streamlit as st
         site = self._site('Failed')
-        self.db.insert_monitoring_result(_result_row(datetime.now(), site, http_success=False))
+        self.db.insert_monitoring_result(_result_row(config.utc_now(), site, http_success=False))
         self._site('Pending')
         st.cache_resource.clear()
         with patch('database.DatabaseManager', return_value=self.db):
@@ -295,7 +296,7 @@ class TestRegressions(TestDatabaseManager):
             assert health_check.main() == 0
             with database_connection(self.db_path) as conn:
                 conn.execute('UPDATE monitoring_heartbeat SET completed_at = ?',
-                             (datetime.now() - timedelta(days=1),))
+                             (config.utc_now() - timedelta(days=1),))
             assert health_check.main() == 1
 
     def test_empty_monitoring_cycle_records_health(self):
@@ -318,14 +319,14 @@ class TestRegressions(TestDatabaseManager):
         with database_connection(self.db_path) as conn:
             budget = monitoring_max_age_seconds(conn)
             assert budget >= 800
-            conn.execute('INSERT INTO monitoring_heartbeat VALUES (1, ?)',
-                         (datetime.now() - timedelta(seconds=400),))
+            conn.execute('INSERT INTO monitoring_heartbeat (id, completed_at) VALUES (1, ?)',
+                         (config.utc_now() - timedelta(seconds=400),))
         assert self.db.get_current_status()['overall_success'].all()
         with patch('config.DATABASE_PATH', self.db_path):
             assert health_check.main() == 0
             with database_connection(self.db_path) as conn:
                 conn.execute('UPDATE monitoring_heartbeat SET completed_at = ?',
-                             (datetime.now() - timedelta(seconds=budget + 1),))
+                             (config.utc_now() - timedelta(seconds=budget + 1),))
             assert health_check.main() == 1
 
     def test_results_are_persisted_before_probing_next_site(self):
@@ -339,11 +340,57 @@ class TestRegressions(TestDatabaseManager):
         def probe(configs):
             if configs[0]['name'] == 'Second':
                 assert self.db.get_recent_results()['site_name'].tolist() == ['First']
-            return [_result_row(datetime.now(), configs[0], http_success=True, overall_success=True)]
+            return [_result_row(config.utc_now(), configs[0], http_success=True, overall_success=True)]
         service.monitor.monitor_all_sites.side_effect = probe
         service.run_monitoring_cycle()
         assert len(self.db.get_recent_results()) == 2
         assert service.monitor.monitor_all_sites.call_count == 2
+
+    def test_legacy_timestamps_migrate_once_and_keep_originals(self):
+        from datetime import datetime, timezone
+        from database import database_connection
+        self._result(self._site())
+        self.db.record_heartbeat()
+        local_time = datetime(2026, 11, 1, 1, 59)
+        expected = local_time.astimezone(timezone.utc).replace(tzinfo=None)
+        with database_connection(self.db_path) as conn:
+            conn.execute("DELETE FROM monitoring_metadata WHERE key = 'time_basis'")
+            conn.execute('UPDATE monitoring_results SET timestamp = ?', (local_time,))
+            conn.execute('UPDATE monitoring_heartbeat SET completed_at = ?', (local_time,))
+        DatabaseManager(self.db_path)
+        DatabaseManager(self.db_path)
+        with database_connection(self.db_path) as conn:
+            assert conn.execute('SELECT timestamp, legacy_timestamp FROM monitoring_results').fetchone() == (expected, local_time)
+            assert conn.execute('SELECT completed_at, legacy_completed_at FROM monitoring_heartbeat').fetchone() == (expected, local_time)
+
+    def test_clock_rollback_cannot_hide_new_failure(self):
+        from datetime import datetime
+        from monitor import _result_row
+        site = self._site()
+        self.db.insert_monitoring_result(_result_row(datetime(2026, 11, 1, 1, 59), site,
+                                                     http_success=True, overall_success=True))
+        self.db.insert_monitoring_result(_result_row(datetime(2026, 11, 1, 1, 1), site,
+                                                     http_success=False, overall_success=False))
+        with patch('config.utc_now', return_value=datetime(2026, 11, 1, 1, 2)):
+            assert self.db.get_current_status().iloc[0]['overall_success'] == False
+
+    def test_future_observations_and_heartbeats_are_not_current(self):
+        from datetime import datetime, timedelta
+        import pandas as pd
+        from monitor import _result_row
+        from database import database_connection
+        import health_check
+        now = config.utc_now()
+        self.db.insert_monitoring_result(_result_row(now + timedelta(hours=1), self._site(),
+                                                     http_success=True, overall_success=True))
+        with database_connection(self.db_path) as conn:
+            conn.execute('INSERT INTO monitoring_heartbeat (id, completed_at) VALUES (1, ?)',
+                         (now + timedelta(hours=1),))
+        assert pd.isna(self.db.get_current_status().iloc[0]['overall_success'])
+        with patch('config.DATABASE_PATH', self.db_path):
+            assert health_check.main() == 1
+        assert self.db.get_recent_results().empty
+        assert self.db.get_site_summary().empty
 
     def test_database_access_waits_for_other_process(self):
         import subprocess
@@ -407,8 +454,7 @@ class TestMonitorRegressions:
         import config
         for system, count_flag, timeout_flag, timeout in (
                 ('Linux', '-c', '-W', str(config.PING_TIMEOUT_SECONDS)),
-                ('Darwin', '-c', '-W', str(config.PING_TIMEOUT_SECONDS * 1000)),
-                ('Windows', '-n', '-w', str(config.PING_TIMEOUT_SECONDS * 1000))):
+                ('Darwin', '-c', '-W', str(config.PING_TIMEOUT_SECONDS * 1000))):
             response = MagicMock(returncode=0, stdout='Packets: Sent = 3, Received = 2, Lost = 1 (33% loss),\nMinimum = 1ms, Maximum = 3ms, Average = 2ms')
             with patch('monitor.platform.system', return_value=system), patch('monitor.subprocess.run', return_value=response) as run:
                 result = NetworkMonitor().ping_host('example.com')
@@ -417,6 +463,24 @@ class TestMonitorRegressions:
             assert args[args.index(timeout_flag) + 1] == timeout
             assert result['packet_loss_percent'] == 33
             assert result['avg_ms'] == 2
+
+    def test_windows_ping_uses_structured_results_and_safe_target_data(self):
+        from monitor import NetworkMonitor
+        import json
+        host = 'example.com; invalid shell text'
+        response = MagicMock(returncode=0, stdout=json.dumps({'received': 2, 'min_ms': 1,
+                                                            'avg_ms': 2, 'max_ms': 3}))
+        with patch('monitor.platform.system', return_value='Windows'), patch('monitor.subprocess.run', return_value=response) as run:
+            result = NetworkMonitor().ping_host(host)
+        assert result['success'] is True
+        assert abs(result['packet_loss_percent'] - 100 / 3) < 0.001
+        assert result['avg_ms'] == 2
+        assert run.call_args.args[0][0] == 'powershell.exe'
+        assert host not in run.call_args.args[0][-1]
+        assert run.call_args.kwargs['env']['HOME_NET_PING_HOST'] == host
+        response.stdout = json.dumps({'received': 0, 'min_ms': None, 'avg_ms': None, 'max_ms': None})
+        with patch('monitor.platform.system', return_value='Windows'), patch('monitor.subprocess.run', return_value=response):
+            assert NetworkMonitor().ping_host('example.com')['success'] is False
 
     def test_windows_unreachable_is_not_success(self):
         from monitor import NetworkMonitor

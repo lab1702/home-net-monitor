@@ -3,7 +3,7 @@
 
 import os
 import sys
-from datetime import datetime, timedelta
+from datetime import timedelta
 
 import config
 from database import database_connection, monitoring_max_age_seconds
@@ -16,10 +16,10 @@ def main():
             print("Database file does not exist")
             return 1
         with database_connection(config.DATABASE_PATH) as conn:
-            cutoff = datetime.now() - timedelta(seconds=monitoring_max_age_seconds(conn))
+            cutoff = config.utc_now() - timedelta(seconds=monitoring_max_age_seconds(conn))
             result = conn.execute(
-                "SELECT COUNT(*) FROM monitoring_heartbeat WHERE completed_at > ?",
-                (cutoff,),
+                "SELECT COUNT(*) FROM monitoring_heartbeat WHERE completed_at > ? AND completed_at <= ?",
+                (cutoff, config.utc_now()),
             ).fetchone()
         if result and result[0] > 0:
             print("Health check passed: recent monitoring progress")

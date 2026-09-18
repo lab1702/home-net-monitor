@@ -2,6 +2,7 @@
 
 import subprocess
 import multiprocessing
+import json
 import os
 import platform
 from urllib.parse import urljoin
@@ -9,7 +10,6 @@ import time
 import requests
 import re
 import logging
-from datetime import datetime
 from typing import Dict, List
 import config
 
@@ -88,7 +88,27 @@ class NetworkMonitor:
             system = platform.system()
             timeout_ms = str(int(config.PING_TIMEOUT_SECONDS * 1000))
             if system == 'Windows':
-                cmd = ['ping', '-n', str(count), '-w', timeout_ms, host]
+                # .NET returns numeric status/timings without localized ping text.
+                script = r"""
+$ErrorActionPreference = 'Stop'
+$ping = New-Object System.Net.NetworkInformation.Ping
+$times = @()
+try {
+    for ($i = 0; $i -lt [int]$env:HOME_NET_PING_COUNT; $i++) {
+        try {
+            $reply = $ping.Send($env:HOME_NET_PING_HOST, [int]$env:HOME_NET_PING_TIMEOUT_MS)
+            if ($reply.Status -eq [System.Net.NetworkInformation.IPStatus]::Success) {
+                $times += [double]$reply.RoundtripTime
+            }
+        } catch { }
+        if ($i + 1 -lt [int]$env:HOME_NET_PING_COUNT) { Start-Sleep -Milliseconds 1000 }
+    }
+    $stats = $times | Measure-Object -Minimum -Maximum -Average
+    @{ received = $times.Count; min_ms = $stats.Minimum;
+       max_ms = $stats.Maximum; avg_ms = $stats.Average } | ConvertTo-Json -Compress
+} finally { $ping.Dispose() }
+"""
+                cmd = ['powershell.exe', '-NoProfile', '-NonInteractive', '-Command', script]
             else:
                 timeout = timeout_ms if system == 'Darwin' else str(config.PING_TIMEOUT_SECONDS)
                 cmd = ['ping', '-c', str(count), '-W', timeout, '--', host]
@@ -98,10 +118,21 @@ class NetworkMonitor:
                 capture_output=True,
                 text=True,
                 timeout=count * (config.PING_TIMEOUT_SECONDS + 1) + 5,
-                env={**os.environ, 'LC_ALL': 'C'}
+                env={**os.environ, 'LC_ALL': 'C', 'HOME_NET_PING_HOST': host,
+                     'HOME_NET_PING_COUNT': str(count), 'HOME_NET_PING_TIMEOUT_MS': timeout_ms}
             )
             
             if result.returncode == 0:
+                if system == 'Windows':
+                    stats = json.loads(result.stdout)
+                    received = stats['received']
+                    if not isinstance(received, int) or not 0 <= received <= count:
+                        return _failed_ping()
+                    if not received:
+                        return _failed_ping()
+                    return {'success': True, 'avg_ms': stats['avg_ms'],
+                            'min_ms': stats['min_ms'], 'max_ms': stats['max_ms'],
+                            'packet_loss_percent': (count - received) * 100.0 / count}
                 return self._parse_ping_output(result.stdout)
             else:
                 logger.warning(f"Ping failed for {host}: {result.stderr}")
@@ -189,7 +220,7 @@ class NetworkMonitor:
 
     def monitor_site(self, site_config: Dict) -> Dict:
         """Monitor a single site with optional HTTP and ping checks."""
-        timestamp = datetime.now()
+        timestamp = config.utc_now()
         
         # Perform HTTP check only if URL is specified and HTTP is enabled
         url = site_config.get('url')
@@ -287,7 +318,7 @@ class NetworkMonitor:
                 has_http = bool(site_config.get('url')) and site_config.get('enable_http', True)
                 has_ping = bool(site_config.get('ping_host')) and site_config.get('enable_ping', True)
                 results.append(_result_row(
-                    datetime.now(), site_config,
+                    config.utc_now(), site_config,
                     http_success=False if has_http else None,
                     ping_success=False if has_ping else None,
                     ping_packet_loss_percent=100.0 if has_ping else None,

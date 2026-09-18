@@ -179,6 +179,15 @@ The application stores data in a DuckDB database with the following schema:
   - Timestamps and success flags
 
 Data is automatically cleaned up after 30 days to prevent unlimited growth.
+Measurement and heartbeat timestamps use UTC, and dashboard timestamps are labeled
+accordingly. On first startup after upgrading, legacy local timestamps are
+converted using the host's local timezone; originals remain in `legacy_timestamp`
+and `legacy_completed_at`. Keep the original timezone when upgrading a moved
+legacy database. Repeated-hour timestamps from before the upgrade are inherently
+ambiguous because the old format did not record a UTC offset.
+
+Windows ping checks require Windows PowerShell and use structured .NET results,
+so operating-system language does not affect reachability detection.
 
 ## Environment Variables
 

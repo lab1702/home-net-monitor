@@ -168,12 +168,12 @@ try:
         status_df['Packet Loss (%)'] = status_df['ping_packet_loss_percent'].apply(
             lambda x: f"{x:.1f}" if pd.notna(x) else "N/A"
         )
-        status_df['Last Check'] = pd.to_datetime(status_df['timestamp']).dt.strftime('%Y-%m-%d %H:%M:%S')
+        status_df['Last Check (UTC)'] = pd.to_datetime(status_df['timestamp']).dt.strftime('%Y-%m-%d %H:%M:%S')
         
         display_df = status_df[['site_name', 'Status', 'HTTP', 'Ping', 
-                               'HTTP Response (ms)', 'Ping Time (ms)', 'Packet Loss (%)', 'Last Check']]
+                               'HTTP Response (ms)', 'Ping Time (ms)', 'Packet Loss (%)', 'Last Check (UTC)']]
         display_df.columns = ['Site', 'Status', 'HTTP', 'Ping', 'HTTP Response (ms)', 
-                             'Ping Time (ms)', 'Packet Loss (%)', 'Last Check']
+                             'Ping Time (ms)', 'Packet Loss (%)', 'Last Check (UTC)']
         
         # Sort by site name for consistent display order
         display_df = display_df.sort_values('Site')
@@ -241,7 +241,7 @@ try:
                 y='overall_success',
                 color='site_name',
                 title='Site Availability Over Time',
-                labels={'overall_success': 'Online (1) / Offline (0)', 'timestamp': 'Time'},
+                labels={'overall_success': 'Online (1) / Offline (0)', 'timestamp': 'Time (UTC)'},
                 height=400
             )
             fig_uptime.update_traces(mode='lines+markers')
@@ -256,7 +256,7 @@ try:
                     y='http_response_time_ms',
                     color='site_name',
                     title='HTTP Response Time Over Time',
-                    labels={'http_response_time_ms': 'Response Time (ms)', 'timestamp': 'Time'},
+                    labels={'http_response_time_ms': 'Response Time (ms)', 'timestamp': 'Time (UTC)'},
                     height=400
                 )
                 st.plotly_chart(fig_response, use_container_width=True)
@@ -270,7 +270,7 @@ try:
                     y='ping_avg_ms',
                     color='site_name',
                     title='Ping Time Over Time',
-                    labels={'ping_avg_ms': 'Ping Time (ms)', 'timestamp': 'Time'},
+                    labels={'ping_avg_ms': 'Ping Time (ms)', 'timestamp': 'Time (UTC)'},
                     height=400
                 )
                 st.plotly_chart(fig_ping, use_container_width=True)
@@ -284,7 +284,7 @@ try:
                     y='ping_packet_loss_percent',
                     color='site_name',
                     title='Packet Loss Over Time',
-                    labels={'ping_packet_loss_percent': 'Packet Loss (%)', 'timestamp': 'Time'},
+                    labels={'ping_packet_loss_percent': 'Packet Loss (%)', 'timestamp': 'Time (UTC)'},
                     height=400
                 )
                 st.plotly_chart(fig_packet_loss, use_container_width=True)

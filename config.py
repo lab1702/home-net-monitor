@@ -1,6 +1,12 @@
 """Configuration settings for the home network monitor."""
 
 import os
+from datetime import datetime, timezone
+
+
+def utc_now():
+    """Use naive UTC consistently with DuckDB TIMESTAMP storage."""
+    return datetime.now(timezone.utc).replace(tzinfo=None)
 
 # Database configuration
 DATABASE_PATH = os.getenv("DATABASE_PATH", "network_monitor.db")

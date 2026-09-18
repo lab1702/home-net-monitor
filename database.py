@@ -3,7 +3,7 @@
 import logging
 import os
 from contextlib import contextmanager
-from datetime import datetime, timedelta
+from datetime import timedelta, timezone
 import duckdb
 import pandas as pd
 from typing import List, Dict
@@ -128,6 +128,24 @@ class DatabaseManager:
                     id INTEGER PRIMARY KEY, completed_at TIMESTAMP NOT NULL
                 )
             """)
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS monitoring_metadata (
+                    key VARCHAR PRIMARY KEY, value VARCHAR NOT NULL
+                )
+            """)
+            if conn.execute("SELECT value FROM monitoring_metadata WHERE key = 'time_basis'").fetchone() is None:
+                # Legacy measurements used this host's local wall clock. Keep the
+                # originals so ambiguous DST times or moved databases remain recoverable.
+                conn.execute('ALTER TABLE monitoring_results ADD COLUMN IF NOT EXISTS legacy_timestamp TIMESTAMP')
+                conn.execute('ALTER TABLE monitoring_heartbeat ADD COLUMN IF NOT EXISTS legacy_completed_at TIMESTAMP')
+                conn.create_function(
+                    '_legacy_local_to_utc',
+                    lambda value: value.astimezone(timezone.utc).replace(tzinfo=None),
+                    parameters=['TIMESTAMP'], return_type='TIMESTAMP')
+                conn.execute('UPDATE monitoring_results SET legacy_timestamp = timestamp, timestamp = _legacy_local_to_utc(timestamp)')
+                conn.execute('UPDATE monitoring_heartbeat SET legacy_completed_at = completed_at, completed_at = _legacy_local_to_utc(completed_at)')
+                conn.remove_function('_legacy_local_to_utc')
+                conn.execute("INSERT INTO monitoring_metadata VALUES ('time_basis', 'UTC')")
             # Empty existing stores are intentional; seed only at first creation.
             if not config_exists:
                 self.initialize_default_configurations(conn)
@@ -228,9 +246,9 @@ class DatabaseManager:
         """Record startup or persisted cycle progress, including empty cycles."""
         with database_connection(self.db_path) as conn:
             conn.execute("""
-                INSERT INTO monitoring_heartbeat VALUES (1, ?)
+                INSERT INTO monitoring_heartbeat (id, completed_at) VALUES (1, ?)
                 ON CONFLICT (id) DO UPDATE SET completed_at = excluded.completed_at
-            """, (datetime.now(),))
+            """, (config.utc_now(),))
 
     def insert_monitoring_result(self, result: Dict):
         """Insert a monitoring result into the database."""
@@ -263,9 +281,9 @@ class DatabaseManager:
         with database_connection(self.db_path) as conn:
             return conn.execute("""
                 SELECT * FROM monitoring_results
-                WHERE timestamp > ?
+                WHERE timestamp > ? AND timestamp <= ?
                 ORDER BY timestamp DESC
-            """, (datetime.now() - timedelta(hours=hours),)).df()
+            """, (config.utc_now() - timedelta(hours=hours), config.utc_now())).df()
     
     def get_site_summary(self, hours: int = 24) -> pd.DataFrame:
         """Get summary statistics for each site."""
@@ -280,10 +298,10 @@ class DatabaseManager:
                     AVG(ping_avg_ms) as avg_ping_time,
                     AVG(ping_packet_loss_percent) as avg_packet_loss
                 FROM monitoring_results
-                WHERE timestamp > ?
+                WHERE timestamp > ? AND timestamp <= ?
                 GROUP BY site_name
                 ORDER BY uptime_percent DESC
-            """, (datetime.now() - timedelta(hours=hours),)).df()
+            """, (config.utc_now() - timedelta(hours=hours), config.utc_now())).df()
     
     def get_current_status(self) -> pd.DataFrame:
         """Get the most recent status for each site."""
@@ -291,12 +309,12 @@ class DatabaseManager:
             query = """
                 WITH ranked_results AS (
                     SELECT *, ROW_NUMBER() OVER (
-                        PARTITION BY site_name ORDER BY timestamp DESC, id DESC
+                        PARTITION BY site_name ORDER BY id DESC
                     ) AS rn FROM monitoring_results
                 )
                 SELECT c.name AS site_name,
                        r.* EXCLUDE (site_name, overall_success),
-                       CASE WHEN r.timestamp > ?
+                       CASE WHEN r.timestamp > ? AND r.timestamp <= ?
                             AND (r.http_success IS NOT NULL) = c.enable_http
                             AND (r.ping_success IS NOT NULL) = c.enable_ping
                             THEN r.overall_success
@@ -307,8 +325,8 @@ class DatabaseManager:
                     AND r.ping_host IS NOT DISTINCT FROM c.ping_host
                 WHERE c.enabled = true
             """
-            cutoff = datetime.now() - timedelta(seconds=monitoring_max_age_seconds(conn))
-            return conn.execute(query, (cutoff,)).df()
+            cutoff = config.utc_now() - timedelta(seconds=monitoring_max_age_seconds(conn))
+            return conn.execute(query, (cutoff, config.utc_now())).df()
 
     def cleanup_old_data(self, days_to_keep: int = 30):
         """Remove data older than specified days."""
@@ -316,4 +334,4 @@ class DatabaseManager:
             conn.execute("""
                 DELETE FROM monitoring_results
                 WHERE timestamp < ?
-            """, (datetime.now() - timedelta(days=days_to_keep),))
+            """, (config.utc_now() - timedelta(days=days_to_keep),))
