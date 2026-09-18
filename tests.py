@@ -559,6 +559,48 @@ class TestMonitorRegressions:
             response.raw.read.assert_not_called()
             response.raw.stream.assert_not_called()
 
+    def test_http_redirects_preserve_auth_only_for_trusted_destinations(self):
+        import requests
+        from monitor import _http_headers
+        original = 'https://user:pass@example.test/start'
+        basic_auth = requests.auth._basic_auth_str('user', 'pass')
+        cases = (
+            (['https://example.test/final'], [basic_auth, basic_auth]),
+            (['https://example.test:443/final'], [basic_auth, basic_auth]),
+            (['https://other.test/final'], [basic_auth, None]),
+            (['http://example.test/final'], [basic_auth, None]),
+            (['https://example.test:8443/final'], [basic_auth, None]),
+            (['https://other.test/next', 'https://example.test/final'],
+             [basic_auth, None, None]),
+            (['https://next:secret@example.test/final'],
+             [basic_auth, requests.auth._basic_auth_str('next', 'secret')]),
+        )
+        for destinations, expected_auth in cases:
+            observed_auth = []
+            responses = []
+            def respond(request, **kwargs):
+                index = len(observed_auth)
+                observed_auth.append(request.headers.get('Authorization'))
+                response = requests.Response()
+                response.request = request
+                response.url = request.url
+                response.raw = MagicMock()
+                if index < len(destinations):
+                    response.status_code = 302
+                    response.headers['Location'] = destinations[index]
+                else:
+                    response.status_code = 200 if observed_auth == expected_auth else 401
+                responses.append(response)
+                return response
+            with patch('requests.sessions.get_netrc_auth', return_value=None), patch(
+                    'requests.adapters.HTTPAdapter.send', side_effect=respond):
+                assert _http_headers(original)['success'] is True
+            assert observed_auth == expected_auth
+            for response in responses:
+                response.raw.read.assert_not_called()
+                response.raw.stream.assert_not_called()
+                response.raw.close.assert_called()
+
     def test_http_worker_is_terminated_at_deadline(self):
         from monitor import NetworkMonitor
         context = MagicMock()

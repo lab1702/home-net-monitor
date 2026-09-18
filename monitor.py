@@ -53,14 +53,23 @@ def _http_headers(url):
     start = time.monotonic()
     with _HeaderOnlySession() as session:
         session.headers.update({'User-Agent': 'NetworkMonitor/1.0'})
+        request = session.prepare_request(requests.Request('GET', url))
         for _ in range(6):
             remaining = config.HTTP_TIMEOUT_SECONDS - (time.monotonic() - start)
             if remaining <= 0:
                 raise requests.exceptions.Timeout('HTTP deadline expired')
-            with session.get(url, timeout=remaining, stream=True,
-                             allow_redirects=False) as response:
+            settings = session.merge_environment_settings(request.url, {}, True, None, None)
+            with session.send(request, timeout=remaining, allow_redirects=False,
+                              **settings) as response:
                 if response.is_redirect:
-                    url = urljoin(url, response.headers['Location'])
+                    next_url = urljoin(request.url, session.get_redirect_target(response))
+                    next_request = session.prepare_request(requests.Request('GET', next_url))
+                    authorization = request.headers.get('Authorization')
+                    if authorization and not session.should_strip_auth(request.url, next_request.url):
+                        # Carry credentials only to destinations permitted by Requests.
+                        # Explicit destination credentials take precedence.
+                        next_request.headers.setdefault('Authorization', authorization)
+                    request = next_request
                     continue
                 return {'success': 200 <= response.status_code < 300,
                         'status_code': response.status_code,
