@@ -94,12 +94,19 @@ try:
     # Determine status color based on system health
     if not current_status.empty:
         total_sites = len(current_status)
-        online_sites = current_status['overall_success'].sum()
+        online_sites = int(current_status['overall_success'].sum())
+        unknown_sites = int(current_status['overall_success'].isna().sum())
         
         # Choose header color based on system status
         if online_sites == total_sites:
             status_icon = "🟢"  # All sites online
             status_text = "All Systems Operational"
+        elif unknown_sites == total_sites:
+            status_icon = "⚪"
+            status_text = "Monitoring Data Stale or Pending"
+        elif unknown_sites and online_sites + unknown_sites == total_sites:
+            status_icon = "⚪"
+            status_text = "Status Incomplete"
         elif online_sites > 0:
             status_icon = "🟡"  # Some sites down
             status_text = "Partial Outage"
@@ -113,7 +120,7 @@ try:
     st.header(f"{status_icon} Current Status - {status_text}")
     
     if not current_status.empty:
-        col1, col2, col3, col4 = st.columns(4)
+        col1, col2, col3, col4, col5 = st.columns(5)
         
         with col1:
             st.metric("Total Sites", total_sites)
@@ -122,16 +129,19 @@ try:
             st.metric("Online Sites", online_sites)
         
         with col3:
-            offline_sites = total_sites - online_sites
+            offline_sites = total_sites - online_sites - unknown_sites
             st.metric("Offline Sites", offline_sites)
         
         with col4:
-            if total_sites > 0:
+            if total_sites > 0 and not unknown_sites:
                 uptime_percent = (online_sites / total_sites) * 100
                 st.metric("Overall Uptime", f"{uptime_percent:.1f}%")
             else:
                 st.metric("Overall Uptime", "N/A")
         
+        with col5:
+            st.metric("Unknown Sites", unknown_sites)
+
         # Current status table
         st.subheader("Site Status Details")
         status_df = current_status[[
@@ -141,13 +151,13 @@ try:
         
         # Format columns
         status_df['Status'] = status_df['overall_success'].apply(
-            lambda x: '🟢 Online' if x else '🔴 Offline'
+            lambda x: '⚪ Unknown' if pd.isna(x) else ('🟢 Online' if x else '🔴 Offline')
         )
         status_df['HTTP'] = status_df['http_success'].apply(
-            lambda x: '✅' if x is True else ('❌' if x is False else '➖')
+            lambda x: '➖' if pd.isna(x) else ('✅' if x else '❌')
         )
         status_df['Ping'] = status_df['ping_success'].apply(
-            lambda x: '✅' if x is True else ('❌' if x is False else '➖')
+            lambda x: '➖' if pd.isna(x) else ('✅' if x else '❌')
         )
         status_df['HTTP Response (ms)'] = status_df['http_response_time_ms'].apply(
             lambda x: f"{x:.1f}" if pd.notna(x) else "N/A"

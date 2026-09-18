@@ -1,6 +1,10 @@
 """Network monitoring functionality."""
 
 import subprocess
+import multiprocessing
+import os
+import platform
+from urllib.parse import urljoin
 import time
 import requests
 import re
@@ -38,27 +42,63 @@ def _result_row(timestamp, site_config, *, http_success=None, ping_success=None,
     }
 
 
+class _HeaderOnlySession(requests.Session):
+    def resolve_redirects(self, *args, **kwargs):
+        # Requests otherwise consumes redirect bodies even with stream=True.
+        # Follow Location ourselves, closing each response without reading it.
+        return iter(())
+
+
+def _http_headers(url):
+    start = time.monotonic()
+    with _HeaderOnlySession() as session:
+        session.headers.update({'User-Agent': 'NetworkMonitor/1.0'})
+        for _ in range(6):
+            remaining = config.HTTP_TIMEOUT_SECONDS - (time.monotonic() - start)
+            if remaining <= 0:
+                raise requests.exceptions.Timeout('HTTP deadline expired')
+            with session.get(url, timeout=remaining, stream=True,
+                             allow_redirects=False) as response:
+                if response.is_redirect:
+                    url = urljoin(url, response.headers['Location'])
+                    continue
+                return {'success': response.status_code == 200,
+                        'status_code': response.status_code,
+                        'response_time_ms': (time.monotonic() - start) * 1000}
+    raise requests.exceptions.TooManyRedirects('More than five redirects')
+
+
+def _http_worker(url, connection):
+    try:
+        connection.send(_http_headers(url))
+    except Exception:
+        connection.send({'success': False, 'status_code': None,
+                         'response_time_ms': None})
+    finally:
+        connection.close()
+
+
 class NetworkMonitor:
     """Performs network monitoring checks."""
-    
-    def __init__(self):
-        self.session = requests.Session()
-        # Set a reasonable user agent
-        self.session.headers.update({
-            'User-Agent': 'NetworkMonitor/1.0 (+https://github.com/home-net-monitor)'
-        })
-    
+
     def ping_host(self, host: str, count: int = config.PING_COUNT) -> Dict:
         """Ping a host and return statistics."""
         try:
             # Build ping command based on the operating system
-            cmd = ['ping', '-c', str(count), '-W', str(config.PING_TIMEOUT_SECONDS), host]
+            system = platform.system()
+            timeout_ms = str(int(config.PING_TIMEOUT_SECONDS * 1000))
+            if system == 'Windows':
+                cmd = ['ping', '-n', str(count), '-w', timeout_ms, host]
+            else:
+                timeout = timeout_ms if system == 'Darwin' else str(config.PING_TIMEOUT_SECONDS)
+                cmd = ['ping', '-c', str(count), '-W', timeout, '--', host]
             
             result = subprocess.run(
                 cmd,
                 capture_output=True,
                 text=True,
-                timeout=config.PING_TIMEOUT_SECONDS + 5
+                timeout=count * (config.PING_TIMEOUT_SECONDS + 1) + 5,
+                env={**os.environ, 'LC_ALL': 'C'}
             )
             
             if result.returncode == 0:
@@ -78,8 +118,14 @@ class NetworkMonitor:
         """Parse ping command output to extract statistics."""
         try:
             # Look for packet loss percentage
-            packet_loss_match = re.search(r'(\d+)% packet loss', output)
-            packet_loss = float(packet_loss_match.group(1)) if packet_loss_match else 0.0
+            packet_loss_match = re.search(r'(\d+(?:\.\d+)?)% packet loss', output)
+            if packet_loss_match is None:
+                packet_loss_match = re.search(r'\((\d+(?:\.\d+)?)% loss\)', output)
+            if packet_loss_match is None:
+                return _failed_ping()
+            packet_loss = float(packet_loss_match.group(1))
+            if not 0 <= packet_loss <= 100:
+                return _failed_ping()
             
             # Look for timing statistics: "min/avg/max[/stddev] = 1/2/3[/4] ms".
             # One regex covers both the Linux (rtt) and macOS/BSD (round-trip) headers.
@@ -91,6 +137,11 @@ class NetworkMonitor:
             else:
                 min_ms = avg_ms = max_ms = None
             
+            if timing_match is None:
+                windows_timing = re.search(
+                    r'Minimum = (\d+)ms, Maximum = (\d+)ms, Average = (\d+)ms', output)
+                if windows_timing:
+                    min_ms, max_ms, avg_ms = map(float, windows_timing.groups())
             success = packet_loss < 100.0
             
             return {
@@ -106,32 +157,36 @@ class NetworkMonitor:
             return _failed_ping()
     
     def check_http(self, url: str) -> Dict:
-        """Check HTTP response for a URL."""
+        """Read only headers, with a hard deadline covering DNS and redirects."""
+        failure = {'success': False, 'status_code': None, 'response_time_ms': None}
+        context = multiprocessing.get_context('spawn')
+        receive, send = context.Pipe(duplex=False)
+        worker = context.Process(target=_http_worker, args=(url, send), daemon=True)
+        started = False
         try:
-            start_time = time.time()
-            response = self.session.get(
-                url,
-                timeout=config.HTTP_TIMEOUT_SECONDS,
-                allow_redirects=True
-            )
-            end_time = time.time()
-            
-            response_time_ms = (end_time - start_time) * 1000
-            
-            return {
-                'success': response.status_code == 200,
-                'status_code': response.status_code,
-                'response_time_ms': response_time_ms
-            }
-        
-        except requests.exceptions.RequestException as e:
-            logger.warning(f"HTTP error for {url}: {e}")
-            return {
-                'success': False,
-                'status_code': None,
-                'response_time_ms': None
-            }
-    
+            worker.start()
+            started = True
+            send.close()
+            if receive.poll(config.HTTP_TIMEOUT_SECONDS):
+                return receive.recv()
+            logger.warning("HTTP deadline expired")
+            return failure
+        except (OSError, EOFError):
+            logger.warning("HTTP worker failed")
+            return failure
+        finally:
+            send.close()
+            receive.close()
+            if started:
+                worker.join(timeout=0.1)
+                if worker.is_alive():
+                    worker.terminate()
+                    worker.join(timeout=1)
+                if worker.is_alive():
+                    worker.kill()
+                    worker.join()
+                worker.close()
+
     def monitor_site(self, site_config: Dict) -> Dict:
         """Monitor a single site with optional HTTP and ping checks."""
         timestamp = datetime.now()

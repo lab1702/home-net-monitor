@@ -29,6 +29,12 @@ All notable changes to the Home Network Monitor project will be documented in th
 - **Query Parameterization**: Replaced string formatting with proper DuckDB-compatible queries
 
 ### Fixed
+- Serialize shared DuckDB access across application processes and preserve intentionally empty configuration stores.
+- Bound HTTP checks with a worker deadline and avoid downloading response bodies, including redirects.
+- Correct decimal packet loss and Linux, macOS, and Windows ping arguments and output handling.
+- Show only enabled current targets, mark stale or pending observations unknown, and require recent monitoring heartbeats for health checks.
+- Keep configuration IDs separate from editable names, honor the interval environment setting, and support false disabled ping defaults.
+- Bind Docker's published management port to localhost and make test failures return a nonzero status.
 - **SQL Injection Vulnerabilities**: Replaced string formatting with parameterized queries
 - **Navigation Button Feedback**: Fixed button highlighting to respond immediately to clicks
 - **Configuration Validation**: Added proper validation for monitoring configuration entries

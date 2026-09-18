@@ -70,12 +70,13 @@ def render_config_management():
             st.subheader("Edit Configuration")
             
             # Select configuration to edit
-            config_options = config_df.apply(lambda x: f"{x['name']} (ID: {x['id']})", axis=1).tolist()
-            selected_config = st.selectbox("Select configuration to edit:", config_options)
-            
-            if selected_config:
-                # Extract ID from the selected option
-                config_id = int(selected_config.split('ID: ')[1].split(')')[0])
+            config_options = config_df['id'].tolist()
+            labels = {int(row['id']): f"{row['name']} (ID: {row['id']})"
+                      for _, row in config_df.iterrows()}
+            config_id = st.selectbox("Select configuration to edit:", config_options,
+                                     format_func=lambda value: labels[value])
+
+            if config_id is not None:
                 config_row = config_df[config_df['id'] == config_id].iloc[0]
                 
                 # Edit form

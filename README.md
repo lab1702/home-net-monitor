@@ -165,7 +165,7 @@ docker build -t home-net-monitor .
 docker run -v $(pwd)/data:/data home-net-monitor python monitoring_service.py
 
 # Run dashboard
-docker run -p 8501:8501 -v $(pwd)/data:/data home-net-monitor
+docker run -p 127.0.0.1:8501:8501 -v $(pwd)/data:/data home-net-monitor
 ```
 
 ## Data Storage
@@ -187,6 +187,11 @@ Here are some important environment variables that can be configured:
 - `CHECK_INTERVAL_SECONDS`: Interval for running monitoring checks (default: `60` seconds)
 
 ## Security Considerations
+
+The configuration interface has no authentication. Docker examples bind it to
+localhost. Use an authenticated proxy or SSH tunnel for remote access; do not
+publish the management port directly to an untrusted network.
+
 
 - **Input Validation**: All user inputs are validated through centralized validation functions
 - **SQL Injection Protection**: Database queries use proper parameterization and input validation

@@ -46,6 +46,8 @@ class MonitoringService:
             for result in results:
                 self.db.insert_monitoring_result(result)
             
+            self.db.record_heartbeat()
+
             logger.info(f"Completed monitoring cycle, stored {len(results)} results")
             
         except Exception as e:

@@ -59,7 +59,10 @@ MONITOR_SITES = [
 ]
 
 # Monitoring configuration
-CHECK_INTERVAL_SECONDS = 60  # Check sites once per minute
+CHECK_INTERVAL_SECONDS = int(os.getenv("CHECK_INTERVAL_SECONDS", "60"))
+if CHECK_INTERVAL_SECONDS <= 0:
+    raise ValueError("CHECK_INTERVAL_SECONDS must be a positive integer")
+STATUS_MAX_AGE_SECONDS = max(300, CHECK_INTERVAL_SECONDS * 3)
 HTTP_TIMEOUT_SECONDS = 10
 PING_TIMEOUT_SECONDS = 5
 PING_COUNT = 3
